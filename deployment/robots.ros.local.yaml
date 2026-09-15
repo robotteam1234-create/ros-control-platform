@@ -24,7 +24,7 @@ robots:
     services:
       control_command: /control/command
       control_command_type: pinky_control_interfaces/srv/ControlCommand
-      control_available: false
+      control_available: true
     camera:
       enabled: false
       throttle_rate_ms: 100
@@ -34,7 +34,7 @@ robots:
     role: SLAVE
     namespace: /robot_2
     domain_id: 13
-    bridge_url: ws://172.20.10.8:9091
+    bridge_url: ws://127.0.0.1:9091
     topics:
       odom: /odom
       battery_percent: /battery/percent
