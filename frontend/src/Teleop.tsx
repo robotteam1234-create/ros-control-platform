@@ -5,7 +5,7 @@ type VelocityCommand = { linear_mps: number; angular_rps: number }
 const MANUAL_LINEAR_MPS = 0.15
 const MANUAL_TURN_RPS = 0.30
 
-export default function Teleop({ robotId, lease, mode }: { robotId: string; lease: string | null; mode: string }) {
+export default function Teleop({ robotId, lease, mode, stopLatched }: { robotId: string; lease: string | null; mode: string; stopLatched?: boolean | null }) {
   const [active, setActive] = useState(false)
   const [modeBusy, setModeBusy] = useState(false)
   const [modeError, setModeError] = useState('')
@@ -102,7 +102,8 @@ export default function Teleop({ robotId, lease, mode }: { robotId: string; leas
   return <section className="teleop">
     <h2>수동 조작 · {robotId}</h2>
     <p>MANUAL 모드와 제어권이 필요하며 버튼을 누르는 동안만 10Hz 전송합니다.</p>
-    <button disabled={!lease || mode === 'MANUAL' || modeBusy} onClick={manualMode}>MANUAL 모드 전환</button>
+    <button disabled={!lease || mode === 'MANUAL' || modeBusy || stopLatched === true} onClick={manualMode}>MANUAL 모드 전환</button>
+    {stopLatched === true && <p>정지 해제 후 모드 전환 가능</p>}
     <button disabled={!lease || mode !== 'MANUAL'} onPointerDown={() => hold(MANUAL_LINEAR_MPS, 0)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}>전진</button>
     <button disabled={!lease || mode !== 'MANUAL'} onPointerDown={() => hold(0, MANUAL_TURN_RPS)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}>좌회전</button>
     <span>{active ? '전송 중' : '정지'} · 현재 모드 {mode}</span>

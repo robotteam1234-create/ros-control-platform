@@ -95,6 +95,10 @@ async def set_mode(robot_id: str, payload: dict[str, object], request: Request, 
         raise HTTPException(status_code=422, detail="INVALID_VALUE") from error
     if mode not in {"IDLE", "AUTO", "FOLLOW", "MANUAL", "STOPPED"}:
         raise HTTPException(status_code=422, detail="INVALID_VALUE")
+    if mode != "STOPPED":
+        for robot in request.app.state.state_store.snapshot().robots:
+            if robot.robot_id == robot_id and robot.stop_latched:
+                raise HTTPException(status_code=409, detail="STOP_LATCHED")
     try:
         return request.app.state.command_dispatcher.submit(user, request_id, robot_id, "set_mode", parameters={"mode": mode})
     except ValueError as error:

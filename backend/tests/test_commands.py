@@ -33,6 +33,22 @@ def test_teleop_watchdogs_and_individual_stop_protect_both_robots() -> None:
     assert service.protective_stop("robot_1") == {"robot_1": "STOPPED", "robot_2": "STOPPED"}
 
 
+def test_set_mode_rejected_fast_when_stop_latched(tmp_path: Path) -> None:
+    app = create_app(database_path=tmp_path / "control.db", start_command_worker=False)
+    with TestClient(app) as client:
+        app.state.storage.create_or_reset_user("operator", "operator-password", UserRole.OPERATOR)
+        login = client.post("/api/v1/session", json={"username": "operator", "password": "operator-password"}, headers={"origin": ORIGIN})
+        headers = {"origin": ORIGIN, "x-csrf-token": login.json()["csrf_token"]}
+        source = app.state.state_store.snapshot()
+        latched = source.robots[0].model_copy(update={"stop_latched": True})
+        app.state.state_store.snapshot = lambda: source.model_copy(update={"robots": [latched, source.robots[1]]})
+        denied = client.post("/api/v1/robots/robot_1/mode", json={"request_id": str(uuid4()), "mode": "MANUAL"}, headers=headers)
+        assert denied.status_code == 409
+        assert denied.json()["error"]["code"] == "STOP_LATCHED"
+        allowed = client.post("/api/v1/robots/robot_1/mode", json={"request_id": str(uuid4()), "mode": "STOPPED"}, headers=headers)
+        assert allowed.status_code == 202
+
+
 def test_routes_cap_normal_work_and_execute_priority_stop_first(tmp_path: Path) -> None:
     """The dispatcher is paused so route acceptance, capacity, and priority are observable."""
     app = create_app(database_path=tmp_path / "control.db", start_command_worker=False)
