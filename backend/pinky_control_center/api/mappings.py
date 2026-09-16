@@ -17,7 +17,9 @@ async def create_mapping(payload: dict[str, object], request: Request, user=Depe
 async def mapping_action(mapping_id: str, payload: dict[str, object], request: Request, user=Depends(operator)) -> dict[str, object]:
     try:
         leased_operator(request, payload, user)
-        action = str(payload["action"])
+        action = payload.get("action")
+        if not isinstance(action, str) or not action:
+            raise HTTPException(422, detail="INVALID_VALUE")
         return request.app.state.mapping_service.action(user, mapping_id, request_id(payload), action, request.app.state.command_dispatcher)
     except QueueFull as error:
         raise HTTPException(503, detail="QUEUE_FULL") from error
