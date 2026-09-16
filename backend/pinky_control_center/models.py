@@ -161,6 +161,8 @@ class RobotState(BaseModel):
     pose_freshness: Freshness
     linear_mps: float | None = Field(default=None, ge=-5, le=5)
     angular_rps: float | None = Field(default=None, ge=-10, le=10)
+    odom_linear_mps: float | None = Field(default=None, ge=-5, le=5)
+    odom_angular_rps: float | None = Field(default=None, ge=-10, le=10)
     battery_percent: float | None = Field(default=None, ge=0, le=100)
     voltage_v: float | None = Field(default=None, ge=0, le=100)
     battery_freshness: Freshness
@@ -174,7 +176,7 @@ class RobotState(BaseModel):
     tf_valid: bool = True
     tf_reason_code: str | None = Field(default=None, max_length=128)
 
-    @field_validator("linear_mps", "angular_rps", "battery_percent", "voltage_v")
+    @field_validator("linear_mps", "angular_rps", "odom_linear_mps", "odom_angular_rps", "battery_percent", "voltage_v")
     @classmethod
     def finite_measurements(cls, value: float | None) -> float | None:
         return _finite(value)

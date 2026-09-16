@@ -251,6 +251,7 @@ class RosbridgeAdapter:
             "connection": Connection.OFFLINE, "received_at": None,
             "pose_freshness": Freshness.UNKNOWN, "battery_freshness": Freshness.UNKNOWN,
             "pose": None, "linear_mps": None, "angular_rps": None,
+            "odom_linear_mps": None, "odom_angular_rps": None,
             "battery_percent": None, "voltage_v": None,
             "mode": RobotMode.UNKNOWN, "stop_latched": None, "capabilities": [],
             "trail": [], "path": [], "goal": None,
@@ -411,7 +412,9 @@ class RosbridgeAdapter:
         self._states[robot_id] = self._states[robot_id].model_copy(update={
             "connection": Connection.ONLINE, "received_at": now, "pose": pose,
             "pose_freshness": Freshness.FRESH, "linear_mps": _number(linear.get("x")),
-            "angular_rps": _number(angular.get("z")), "tf_valid": False,
+            "angular_rps": _number(angular.get("z")),
+            "odom_linear_mps": _number(linear.get("x")), "odom_angular_rps": _number(angular.get("z")),
+            "tf_valid": False,
             "tf_reason_code": "MAP_TF_UNVERIFIED",
         })
         self._pose_received_at[robot_id] = now

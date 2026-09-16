@@ -44,7 +44,7 @@ class StateStore:
 
     @staticmethod
     def _offline(robot: RobotState) -> RobotState:
-        return robot.model_copy(update={"connection": Connection.OFFLINE, "pose_freshness": Freshness.UNKNOWN, "battery_freshness": Freshness.UNKNOWN, "tf_valid": False, "tf_reason_code": "SAFETY_DISCONNECTED"})
+        return robot.model_copy(update={"connection": Connection.OFFLINE, "pose_freshness": Freshness.UNKNOWN, "battery_freshness": Freshness.UNKNOWN, "tf_valid": False, "tf_reason_code": "SAFETY_DISCONNECTED", "odom_linear_mps": None, "odom_angular_rps": None})
 
     @staticmethod
     def _fresh_robot(robot: RobotState, now: datetime) -> RobotState:

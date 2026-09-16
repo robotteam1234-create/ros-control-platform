@@ -113,7 +113,8 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     app.state.navigation_service = navigation_service
     def refresh_stops() -> None:
         for robot in state_store.snapshot().robots:
-            safety_service.observe(robot.robot_id, stop_latched=bool(robot.stop_latched), linear_mps=robot.linear_mps, angular_rps=robot.angular_rps, fresh=robot.pose_freshness.value == "FRESH")
+            safety_service.observe(robot.robot_id, stop_latched=bool(robot.stop_latched), linear_mps=robot.linear_mps, angular_rps=robot.angular_rps, fresh=robot.pose_freshness.value == "FRESH",
+                                   odom_linear_mps=robot.odom_linear_mps, odom_angular_rps=robot.odom_angular_rps, odom_fresh=robot.pose_freshness.value == "FRESH")
         command_service.refresh_stops(safety_service.states())
     app.state.allowed_origin = allowed_origin
     app.state.secure_cookies = secure_cookies

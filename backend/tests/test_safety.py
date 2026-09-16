@@ -69,6 +69,38 @@ def test_stop_confirmation_and_timeout_use_fake_monotonic_clock() -> None:
     now = 2.0; assert safety.states()["robot_2"] == "UNCONFIRMED"
 
 
+def test_odom_disagreement_blocks_stop_confirmation() -> None:
+    from pinky_control_center.safety_service import SafetyService
+    now = 0.0; safety = SafetyService(clock=lambda: now)
+    safety.request(["robot_1"])
+    safety.observe("robot_1", stop_latched=True, linear_mps=0, angular_rps=0, fresh=True,
+                   odom_linear_mps=0.05, odom_angular_rps=0.0, odom_fresh=True)
+    now = 5.0
+    assert safety.states() == {"robot_1": "UNCONFIRMED"}
+    assert safety.disagreed("robot_1") is True
+
+
+def test_odom_agreement_confirms_stop() -> None:
+    from pinky_control_center.safety_service import SafetyService
+    now = 0.0; safety = SafetyService(clock=lambda: now)
+    safety.request(["robot_1"])
+    safety.observe("robot_1", stop_latched=True, linear_mps=0, angular_rps=0, fresh=True,
+                   odom_linear_mps=0.0, odom_angular_rps=0.0, odom_fresh=True)
+    now = 0.5
+    assert safety.states() == {"robot_1": "CONFIRMED"}
+    assert safety.disagreed("robot_1") is False
+
+
+def test_stale_odom_falls_back_to_status_only() -> None:
+    from pinky_control_center.safety_service import SafetyService
+    now = 0.0; safety = SafetyService(clock=lambda: now)
+    safety.request(["robot_1"])
+    safety.observe("robot_1", stop_latched=True, linear_mps=0, angular_rps=0, fresh=True,
+                   odom_linear_mps=0.09, odom_angular_rps=0.0, odom_fresh=False)
+    now = 0.5
+    assert safety.states() == {"robot_1": "CONFIRMED"}
+
+
 def test_stop_route_executes_each_mock_target(tmp_path: Path) -> None:
     with TestClient(create_app(database_path=tmp_path / "control.db", start_command_worker=False)) as client:
         client.app.state.storage.create_or_reset_user("operator", "operator-password", UserRole.OPERATOR)
