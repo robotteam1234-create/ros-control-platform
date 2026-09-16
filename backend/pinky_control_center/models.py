@@ -385,6 +385,32 @@ class UserInfo(BaseModel):
     role: UserRole
 
 
+class MappingState(StrEnum):
+    DRAFT = "DRAFT"
+    READY = "READY"
+    STARTING = "STARTING"
+    RUNNING = "RUNNING"
+    PAUSING = "PAUSING"
+    PAUSED = "PAUSED"
+    CANCELING = "CANCELING"
+    CANCELED = "CANCELED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class MappingMission(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mapping_id: UUID
+    name: str = Field(min_length=1, max_length=128)
+    state: MappingState
+    robot_id: Literal["robot_1", "robot_2"]
+    map_id: str = Field(min_length=1, max_length=128)
+    stages: list[str] = Field(min_length=1, max_length=4)
+    stage_index: int = Field(ge=0)
+    progress_percent: float | None = Field(default=None, ge=0, le=100)
+    failure_code: str | None = Field(default=None, max_length=128)
+
+
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     username: str = Field(min_length=1, max_length=128)
