@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { createMapping, mappingAction, waitForCommand } from './api'
 import type { Mapping } from './api'
+import { MapHealth } from './MapHealth'
+import { SAFE_CAPS, STAGE_INFO } from './mappingStages'
 
 type Props = { lease: string | null; mapId?: string | null; robotId?: string; onError?: (message: string) => void }
 
-const STAGES = ['wall_follow', 'frontier_explore', 'wall_fill', 'return_home']
+const STAGES = STAGE_INFO.map(stage => stage.id)
 const stateAfterAction: Record<string, string> = { validate: 'READY', start: 'RUNNING', pause: 'PAUSED', resume: 'RUNNING', cancel: 'CANCELED' }
 
 export function MappingPanel({ lease, mapId, robotId = 'robot_1', onError }: Props) {
@@ -54,10 +56,17 @@ export function MappingPanel({ lease, mapId, robotId = 'robot_1', onError }: Pro
     <section className="mapping-panel">
       <h2>매핑 · {state}</h2>
       <ul>
-        {STAGES.map(stage => (
-          <li key={stage}>{stage}</li>
+        {STAGE_INFO.map(stage => (
+          <li key={stage.id}>
+            {stage.id} · {stage.label} · {stage.description}{' '}
+            {stage.requirement === 'lidar-only' ? '(라이다 전용)' : '(SLAM 필요)'}
+          </li>
         ))}
       </ul>
+      <p>
+        안전 상한: {SAFE_CAPS.maxLinearMps} m/s (로봇 측 watchdog 강제)
+      </p>
+      <MapHealth health={null} />
       <button disabled={!canStart} onClick={start}>
         매핑 시작
       </button>
