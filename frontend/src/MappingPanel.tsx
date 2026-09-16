@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createMapping, getMapping, mappingAction, waitForCommand } from './api'
+import { createMapping, mappingAction, waitForCommand } from './api'
 import type { Mapping } from './api'
 
 type Props = { lease: string | null; mapId?: string | null; robotId?: string; onError?: (message: string) => void }
@@ -18,25 +18,14 @@ export function MappingPanel({ lease, mapId, robotId = 'robot_1', onError }: Pro
   const runAction = async (action: 'validate' | 'start' | 'pause' | 'resume' | 'cancel') => {
     if (!mapping || !lease || busy) return
     setBusy(true)
-    let command: { command_id?: string } | undefined
     try {
       const issued = (await mappingAction(mapping.mapping_id, action, lease)) as { command_id?: string }
-      command = issued
       if (issued?.command_id) await waitForCommand(String(issued.command_id))
-      try {
-        setMapping(await getMapping(mapping.mapping_id))
-      } catch {
-        setMapping(current => (current ? { ...current, state: stateAfterAction[action] ?? current.state } : current))
-      }
+      // No backend GET route (Plan 2 scope): refresh from local state explicitly.
+      setMapping(current => (current ? { ...current, state: stateAfterAction[action] ?? current.state } : current))
     } catch (error) {
       report((error as Error).message)
-      if (command?.command_id) {
-        try {
-          setMapping(await getMapping(mapping.mapping_id))
-        } catch {
-          /* preserve command error */
-        }
-      }
+      /* preserve command error: no refetch, local state unchanged */
     } finally {
       setBusy(false)
     }
@@ -50,11 +39,8 @@ export function MappingPanel({ lease, mapId, robotId = 'robot_1', onError }: Pro
       setMapping(created)
       const issued = (await mappingAction(created.mapping_id, 'start', lease)) as { command_id?: string }
       if (issued?.command_id) await waitForCommand(String(issued.command_id))
-      try {
-        setMapping(await getMapping(created.mapping_id))
-      } catch {
-        setMapping({ ...created, state: 'RUNNING' })
-      }
+      // No backend GET route (Plan 2 scope): refresh from local state explicitly.
+      setMapping({ ...created, state: 'RUNNING' })
     } catch (error) {
       report((error as Error).message)
     } finally {
