@@ -1,7 +1,6 @@
 from __future__ import annotations
 from uuid import UUID, uuid4
 from fastapi import HTTPException
-from pinky_control_center.models import FormationMode
 
 STAGES = ["wall_follow", "frontier_explore", "wall_fill", "return_home"]
 VALID = {"validate": {"DRAFT"}, "start": {"READY", "PAUSED"}, "pause": {"RUNNING"}, "resume": {"PAUSED"}, "cancel": {"DRAFT", "READY", "RUNNING", "PAUSED"}}
