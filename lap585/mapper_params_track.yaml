@@ -1,0 +1,76 @@
+slam_toolbox:
+  ros__parameters:
+
+    # Plugin params
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: None
+
+    # ROS Parameters
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_footprint
+    scan_topic: /scan
+    mode: mapping #localization
+
+    debug_logging: false
+    throttle_scans: 1
+    transform_publish_period: 0.02 #if 0 never publishes odometry
+    # 실습 트랙은 2.71 x 1.26 m 이고 통로 폭이 0.30 m 다.
+    # 5cm 격자면 통로가 6칸뿐이라 인플레이션만으로 통행 가능 폭이 사라진다.
+    map_update_interval: 1.0
+    resolution: 0.025
+    # 어떤 칸이 벽이 되려면 (맞은 횟수/지나간 횟수)가 이 값을 넘어야 한다.
+    # 기본 0.1 은 스치듯 한 번만 맞아도 벽으로 굳어서 벽선이 두껍게
+    # 번진다(측정 5cm, 실제 벽은 0.5cm). 값을 올리면 여러 번 확인된
+    # 칸만 벽으로 남아 선이 얇고 깔끔해진다.
+    occupancy_threshold: 0.35
+    max_laser_range: 10.0 #for rastering images
+    minimum_time_interval: 0.5
+    transform_timeout: 0.4
+    tf_buffer_duration: 30.
+    stack_size_to_use: 40000000 #// program needs a larger stack size to serialize large maps
+    enable_interactive_mode: true
+
+    # General Parameters
+    use_scan_matching: true
+    use_scan_barycenter: true
+    # 트랙이 작아 0.5 m 마다 스캔을 반영하면 맵이 로봇을 못 따라온다.
+    minimum_travel_distance: 0.10
+    minimum_travel_heading: 0.20
+    # 루프 클로저는 드리프트를 되돌리는 유일한 수단이다. 기본값은 넓은 실내
+    # 기준이라 2.71 x 1.26 m 트랙에서는 탐색창이 맵보다 커서 제구실을 못 한다.
+    scan_buffer_size: 40              # 되돌아왔을 때 맞춰볼 과거 스캔을 넉넉히
+    scan_buffer_maximum_scan_distance: 3.0
+    link_match_minimum_response_fine: 0.1
+    link_scan_maximum_distance: 1.0
+    loop_search_maximum_distance: 1.5   # 트랙 크기에 맞춤 (기존 3.0)
+    do_loop_closing: true
+    loop_match_minimum_chain_size: 5    # 작은 트랙에선 체인이 짧게 잡힌다
+    loop_match_maximum_variance_coarse: 3.0
+    loop_match_minimum_response_coarse: 0.35
+    loop_match_minimum_response_fine: 0.45
+
+    # Correlation Parameters - Correlation Parameters
+    correlation_search_space_dimension: 0.3
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.03
+
+    # Correlation Parameters - Loop Closure Parameters
+    loop_search_space_dimension: 2.0    # 트랙이 2.71 x 1.26 m 다 (기존 8.0)
+    loop_search_space_resolution: 0.02  # 맵 해상도(0.025)보다 곱게
+    loop_search_space_smear_deviation: 0.02
+
+    # Scan Matcher Parameters
+    distance_variance_penalty: 0.5
+    angle_variance_penalty: 1.0
+
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.349
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.9
+    minimum_distance_penalty: 0.5
+    use_response_expansion: true
