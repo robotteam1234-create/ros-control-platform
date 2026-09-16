@@ -113,6 +113,22 @@ export async function missionAction(missionId: string, action: 'validate' | 'sta
   return mutation(`/api/v1/missions/${missionId}/actions`, { action, lease_id }, '임무 요청 실패')
 }
 
+export type Mapping = { mapping_id: string; state: string; name?: string; stages?: string[]; stage_index?: number }
+
+export async function createMapping(robotId: string, mapId: string, lease: string, name: string, stages?: string[]) {
+  if (!lease) throw new Error('제어권이 필요합니다.')
+  return mutation('/api/v1/mappings', { robot_id: robotId, map_id: mapId, lease_id: lease, name, ...(stages ? { stages } : {}) }, '매핑 생성 실패') as Promise<Mapping>
+}
+export async function mappingAction(id: string, action: string, lease: string) {
+  if (!lease) throw new Error('제어권이 필요합니다.')
+  return mutation(`/api/v1/mappings/${id}/actions`, { action, lease_id: lease }, '매핑 요청 실패')
+}
+export async function getMapping(id: string): Promise<Mapping> {
+  const response = await fetch(`/api/v1/mappings/${id}`, { credentials: 'include' })
+  if (!response.ok) throw new Error(await errorMessage(response, `매핑 조회 실패 (${response.status})`))
+  return response.json() as Promise<Mapping>
+}
+
 export async function getMission(missionId: string): Promise<Mission> {
   const response = await fetch(`/api/v1/missions/${missionId}`, { credentials: 'include' })
   if (!response.ok) throw new Error(await errorMessage(response, `임무 조회 실패 (${response.status})`))
