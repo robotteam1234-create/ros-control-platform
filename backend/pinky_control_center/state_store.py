@@ -25,6 +25,9 @@ class StateStore:
     def snapshot(self) -> StateSnapshot:
         now = self.clock()
         source = self.snapshot_source()
+        for robot in source.robots:
+            if robot.robot_id in self.disconnected and self._link_alive(robot, now):
+                self.disconnected.discard(robot.robot_id)
         robots = [self._offline(robot) if robot.robot_id in self.disconnected else self._fresh_robot(robot, now) for robot in source.robots]
         formation = self.formation_override or source.formation
         if any(not robot.tf_valid or robot.pose is None for robot in robots):
@@ -32,6 +35,12 @@ class StateStore:
         self.sequence += 1
         alerts = self.alert_provider() if self.alert_provider else source.active_alerts
         return source.model_copy(update={"robots": robots, "formation": formation, "active_mission": self.active_mission, "active_alerts": alerts, "seq": self.sequence, "server_time": now, "map_id": self.map_id_provider() if self.map_id_provider else source.map_id})
+
+    @staticmethod
+    def _link_alive(robot: RobotState, now: datetime) -> bool:
+        if robot.received_at is None:
+            return False
+        return now - robot.received_at.astimezone(UTC) <= timedelta(seconds=3)
 
     @staticmethod
     def _offline(robot: RobotState) -> RobotState:

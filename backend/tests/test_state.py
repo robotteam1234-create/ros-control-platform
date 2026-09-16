@@ -28,3 +28,18 @@ def test_snapshot_sequence_restarts_client_from_a_full_snapshot() -> None:
     second = store.snapshot()
     assert second.seq == first.seq + 1
     assert {robot.robot_id for robot in second.robots} == {"robot_1", "robot_2"}
+
+
+def test_disconnected_robot_rejoins_when_fresh_data_arrives() -> None:
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    source = MockRobotAdapter().snapshot()
+    robots = [robot.model_copy(update={"received_at": base}) for robot in source.robots]
+    snapshot = source.model_copy(update={"robots": robots})
+    now = base + timedelta(seconds=10)
+    store = StateStore(lambda: snapshot, clock=lambda: now)
+    store.disconnect("robot_1")
+    assert store.snapshot().robots[0].connection.value == "OFFLINE"
+    now = base
+    rejoined = store.snapshot().robots[0]
+    assert rejoined.connection.value == "ONLINE"
+    assert "robot_1" not in store.disconnected
