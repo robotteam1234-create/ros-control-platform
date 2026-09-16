@@ -14,6 +14,12 @@ test('manual button disabled with hint while stop latched', () => {
   expect(screen.getByText(/정지 해제 후 모드 전환 가능/)).toBeInTheDocument()
   expect(mock).not.toHaveBeenCalled()
 })
+test('stop bar states software-only stop clearly', () => {
+  render(<StopBar role="OPERATOR" lease={null} />)
+  expect(screen.getByText('정지')).toBeInTheDocument()
+  expect(screen.queryByText('긴급 정지')).not.toBeInTheDocument()
+  expect(screen.getByText(/물리 안전 장치가 아닙니다/)).toBeInTheDocument()
+})
 test('teleop press hold sends cadence and one zero on keyup', () => { class Socket { static sent: any[] = []; readyState=1; send(v: string) { Socket.sent.push(JSON.parse(v)) } close() {} } vi.stubGlobal('WebSocket', Socket); render(<Teleop robotId="robot_1" lease="lease" mode="MANUAL" />); const button=screen.getByText('전진'); fireEvent.pointerDown(button); act(() => vi.advanceTimersByTime(350)); fireEvent.pointerUp(button); expect(Socket.sent.length).toBe(5); expect(Socket.sent[Socket.sent.length - 1]).toMatchObject({ linear_mps: 0, angular_rps: 0 }); expect(Socket.sent.map(v=>v.seq)).toEqual([1,2,3,4,5]) })
 test('teleop sends the held command when a newly opened socket becomes ready', () => { class Socket { static instance: Socket; static sent: any[] = []; readyState=0; onopen=()=>{}; onmessage=(_: MessageEvent)=>{}; onerror=()=>{}; onclose=()=>{}; constructor() { Socket.instance=this } open() { this.readyState=1; this.onopen() } send(v: string) { Socket.sent.push(JSON.parse(v)) } close() {} } vi.stubGlobal('WebSocket', Socket); render(<Teleop robotId="robot_1" lease="lease" mode="MANUAL" />); const button=screen.getByText('전진'); fireEvent.pointerDown(button); act(() => vi.advanceTimersByTime(100)); act(() => Socket.instance.open()); fireEvent.pointerUp(button); expect(Socket.sent.map(v=>v.linear_mps)).toEqual([.15, 0]) })
 test('left turn sends a nonzero angular velocity within the watchdog limit', () => { class Socket { static sent: any[] = []; readyState=1; send(v: string) { Socket.sent.push(JSON.parse(v)) } close() {} } vi.stubGlobal('WebSocket', Socket); render(<Teleop robotId="robot_1" lease="lease" mode="MANUAL" />); const button=screen.getByText('좌회전'); fireEvent.pointerDown(button); expect(Socket.sent[0]).toMatchObject({ linear_mps: 0, angular_rps: .3 }); fireEvent.pointerUp(button); expect(Socket.sent[1]).toMatchObject({ linear_mps: 0, angular_rps: 0 }) })

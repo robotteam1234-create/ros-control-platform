@@ -65,7 +65,7 @@ systemctl status pinky-control-center --no-pager
 
 ## 4. 정지·재시작·복구
 
-운영 중에는 UI의 전체 정지를 먼저 실행하고 두 로봇의 `CONFIRMED`를 확인한다. 응답하지 않은 로봇은 `UNCONFIRMED`로 유지하고 현장 절차를 따른다. 서버 재시작은 진행 중 임무를 재개하지 않는다.
+운영 중에는 UI의 전체 정지를 먼저 실행하고 두 로봇의 `CONFIRMED`를 확인한다. UI 정지는 소프트웨어 정지이며 물리 안전 장치가 아니므로 현장에서는 물리 정지 수단과 전원 차단을 함께 준비한다. 응답하지 않은 로봇은 `UNCONFIRMED`로 유지하고 현장 절차를 따른다. 서버 재시작은 진행 중 임무를 재개하지 않는다.
 
 ```bash
 sudo systemctl stop pinky-control-center
