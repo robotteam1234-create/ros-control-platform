@@ -199,7 +199,8 @@ export async function lineFollowAction(robotId: string, action: 'start' | 'stop'
   return mutation(`/api/v1/robots/${robotId}/line-follow/actions`, { action, mode, lease_id }, '라인 추종 요청 실패')
 }
 export async function lineFollowStatus(robotId: string) {
-  const response = await fetch(`/api/v1/robots/${robotId}/line-follow`, { credentials: 'include', headers: { 'X-CSRF-Token': csrf() } })
+  // GET needs session cookies only; no CSRF/lease header (mutations carry those).
+  const response = await fetch(`/api/v1/robots/${robotId}/line-follow`, { credentials: 'include' })
   if (!response.ok) throw new Error(await errorMessage(response, `라인 추종 조회 실패 (${response.status})`))
   return response.json()
 }
