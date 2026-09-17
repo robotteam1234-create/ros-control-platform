@@ -35,6 +35,7 @@ deployment/scripts/acceptance.sh
 | robot_2 domain 13 / bridge 9091 | PASS | 2026-09-12 rosbridge client 연결, `/odom`·배터리·TF·카메라 구독 및 웹 실영상 확인. 2026-09-15 `192.168.1.202` DDS + PC rosbridge 9091로 `ONLINE`/odom·배터리 FRESH·`stop_latched true` 확인. 배터리 19% `BATTERY_WARNING` 활성 |
 | 두 namespace의 TF 경로와 공통 map 좌표 | NOT_RUN | `tf2_tools view_frames`, 시간 동기 상태 |
 | compressed camera topic 매핑·두 스트림·실제 FPS/p95 | PARTIAL | 2026-09-14 robot_2 `/camera/image_raw/compressed` publisher 1개와 플랫폼 JPEG HTTP 200 확인. robot_1 카메라/control workspace 미설치, 두 스트림 장기 FPS/p95 미측정 |
+| LINE-FOLLOW robot_1 tape (white/black, backend MVP) | NOT_RUN | 현장 테이프 주행 로그·명령 기록, LOST 소프트웨어 정지 확인 (로그 증거 없이 PASS로 바꾸지 않는다) |
 | control/follow 수락·결과·재연결 | NOT_RUN | command_id 로그와 adapter contract test. 2026-09-15 `follow_available false` 재확인(로봇에 `FollowCommand.srv` 없음) — formation은 미지원으로 기록 |
 | stop latch·watchdog·최종 cmd_vel 단일 중재 | PARTIAL | 2026-09-15 양쪽 watchdog 부팅 래치(`STOPPED`·`STARTUP_STOP_LATCH`·0속도) 직접 확인, UI 전체/개별 정지·정지해제 `ACCEPTED`·`ACK`, lease 만료 시 양쪽 `SAFETY_STOP ACK` 확인. `/cmd_vel` 단독 publisher 장기 계측·로봇 측 출력 0 직접 샘플은 미실시 |
 | robot_2 control/watchdog/navigation 패키지 build | PASS | 2026-09-12 `/home/pinky/dev_ws/wj`에서 3개 패키지 `colcon build` 통과 |

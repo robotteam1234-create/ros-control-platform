@@ -230,4 +230,35 @@ START_NAV2=0 /home/pinky/start-pinky-robot2-session.sh
 5. 정지 래치가 있으면 `robot_2 정지 해제`를 명시적으로 수행한다. 이전 목표는 자동 재개되지 않는다.
 6. 새 `도착점 설정`을 지정하고 `시작점에서 도착점으로 이동`을 누른다.
 
-시작점·도착점이 점유/미상 셀이면 API가 `MAP_POINT_BLOCKED`로 거부한다. 시험 중 충돌·이상 상황이 다시 발생하면 같은 절차를 반복한다. `stop`은 활성 Nav2 goal을 취소하므로, 정지 해제만으로 로봇이 다시 움직이지 않아야 한다.
+ 시작점·도착점이 점유/미상 셀이면 API가 `MAP_POINT_BLOCKED`로 거부한다. 시험 중 충돌·이상 상황이 다시 발생하면 같은 절차를 반복한다. `stop`은 활성 Nav2 goal을 취소하므로, 정지 해제만으로 로봇이 다시 움직이지 않아야 한다.
+
+## 7. 라인 추종(robot_1) 현장 배선
+
+라인 추종 MVP는 `robot_1`(ROS_DOMAIN_ID `12`)의 전방 바닥 카메라에만 의존한다. 아래는 배선 절차이며, 실제 이동 명령은 현장 담당자가 안전을 확인한 뒤 직접 실행한다. 로봇 측 빌드는 필요 없고 `ros/pinky_camera_pub.py` 단일 파일만 배포한다.
+
+로봇에 camera publisher를 복사한다.
+
+```bash
+scp ros/pinky_camera_pub.py pinky@<robot1>:/home/pinky/
+```
+
+로봇 shell에서 domain 12로 publisher를 실행한다.
+
+```bash
+source /opt/ros/jazzy/setup.bash
+ROS_DOMAIN_ID=12 python3 ~/pinky_camera_pub.py --topic /camera/image_raw/compressed --fps 10
+```
+
+관제 YAML에서는 `robot_1`에만 카메라 구독을 켠다. `robot_2`는 `camera.enabled: false`를 유지한다.
+
+```yaml
+# deployment/robots.ros.yaml (또는 robots.ros.local.yaml)
+- robot_id: robot_1
+  camera:
+    enabled: true
+- robot_id: robot_2
+  camera:
+    enabled: false
+```
+
+카메라 publisher를 먼저 켠 뒤 backend를 (재)시작하고, 웹에서 robot_1 카메라 `OK`와 JPEG 응답을 확인한다. 라인을 잃으면 추종 상태가 `LOST`로 바뀌고 소프트웨어 정지(물리 안전 장치가 아님)로 멈추며 자동 재개하지 않는다. 결과와 명령·로그 증거는 [acceptance-report.md](acceptance-report.md)에 기록하며, 로그 증거 없이 PASS로 바꾸지 않는다.
