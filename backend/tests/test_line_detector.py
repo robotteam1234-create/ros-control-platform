@@ -31,3 +31,9 @@ def test_empty_floor_is_loss():
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=90)
     assert detect_line(buf.getvalue(), "auto").found is False
+
+def test_empty_light_floor_is_loss():
+    img = Image.new("RGB", (320, 240), (220, 220, 220))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=90)
+    assert detect_line(buf.getvalue(), "auto").found is False

@@ -126,7 +126,7 @@ def test_line_follow_status_needs_only_cookies(tmp_path: Path):
         assert r.json() == {"robot_id": "robot_1", "state": "IDLE"}
 
 
-def test_line_follow_start_rejects_stalled_robot_2_scenario(tmp_path: Path):
+def test_line_follow_status_rejects_robot_2_even_when_camera_stalled(tmp_path: Path):
     app = create_app(database_path=tmp_path / "control.db", start_command_worker=False)
     with TestClient(app) as client:
         h = headers(client)
