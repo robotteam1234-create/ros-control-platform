@@ -19,6 +19,7 @@ frontend/.vite/
 .npm/
 
 # Build and tooling caches
+.worktrees/
 dist/
 build/
 coverage/
