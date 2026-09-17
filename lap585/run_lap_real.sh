@@ -52,6 +52,14 @@ sleep 10
 if ! ros2 topic info /map > /dev/null 2>&1; then
   echo "WARN: /map not visible yet, check $L/slam.log"
 fi
+# slam_toolbox boots lifecycle-inactive (no autostart) and stays there
+# across reboots until explicitly activated — with 0 /map publishers and
+# no map->odom TF (robot_2 failure, 2026-09-17). Activate before mapping.
+if ros2 lifecycle get /slam_toolbox 2>/dev/null | grep -q inactive; then
+  echo "SLAM inactive — activating lifecycle"
+  ros2 lifecycle set /slam_toolbox activate
+  sleep 3
+fi
 
 echo "3/4 Nav2 (real params: ${D}/nav2_params_real.yaml)"
 ros2 launch pinky_navigation navigation_launch.xml use_sim_time:=false \
