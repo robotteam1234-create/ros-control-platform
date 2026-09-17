@@ -17,6 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from pinky_control_center.adapters.mock import MockRobotAdapter
 from pinky_control_center.adapters.ros import RosbridgeAdapter
 from pinky_control_center.api import alerts, cameras, control, history, mappings, maps, missions, navigation, sensors, session, state, settings
+from pinky_control_center.api import line_follow as line_follow_api
 from pinky_control_center.auth import current_user, verify_mutation
 from pinky_control_center.config import load_mock_config, load_ros_config
 from pinky_control_center.models import FormationMode, MockScenario, MockScenarioRequest, UserInfo, UserRole
@@ -28,6 +29,7 @@ from pinky_control_center.safety_service import SafetyService
 from pinky_control_center.state_store import StateStore
 from pinky_control_center.storage import Storage, utc_now
 from pinky_control_center.mission_service import MissionService
+from pinky_control_center.line_follow_service import LineFollowService
 from pinky_control_center.mapping_service import MappingService
 from pinky_control_center.alert_service import AlertService
 from pinky_control_center.settings_service import SettingsService
@@ -65,6 +67,7 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     settings_service = SettingsService(storage, adapter, map_service, state_store)
     navigation_service = NavigationService(storage, adapter, state_store, map_service, settings_service.current)
     mission_service = MissionService(storage, adapter, state_store, runtime_clock, settings_service.current)
+    line_follow_service = LineFollowService(adapter)
     mapping_service = MappingService(storage, settings_service.current)
     state_store.alert_provider = lambda: alert_service.list(state="ACTIVE")
     for operation in ("formation_pair", "formation_start", "formation_pause", "formation_unpair", "formation_rejoin"):
@@ -73,6 +76,8 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
         command_service.handlers[operation] = mission_service.execute_mission
     for operation in ("mapping_validate", "mapping_start", "mapping_pause", "mapping_resume", "mapping_cancel"):
         command_service.handlers[operation] = mapping_service.execute_mapping
+    command_service.handlers["mission_line_start"] = line_follow_api.build_line_start_handler(line_follow_service)
+    command_service.handlers["mission_line_stop"] = line_follow_api.build_line_stop_handler(line_follow_service)
     command_service.handlers["navigate_from_map"] = navigation_service.execute
 
     @asynccontextmanager
@@ -107,6 +112,7 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     app.state.teleop_service = teleop_service
     app.state.safety_service = safety_service
     app.state.mission_service = mission_service
+    app.state.line_follow_service = line_follow_service
     app.state.mapping_service = mapping_service
     app.state.alert_service = alert_service
     app.state.settings_service = settings_service
@@ -181,6 +187,7 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     app.include_router(session.router)
     app.include_router(control.router)
     app.include_router(missions.router)
+    app.include_router(line_follow_api.router)
     app.include_router(mappings.router)
     app.include_router(navigation.router)
     app.add_api_websocket_route("/ws/teleop", control.teleop)
