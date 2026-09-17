@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { acquireLease, formationAction, login, logout, navigateRobot, releaseLease, renewLease, resetLocalization, session, stateSocket, waitForCommand } from './api'
+import { acquireLease, formationAction, login, logout, navigateRobot, releaseLease, renewLease, resetLocalization, session, stateSocket, tryBypassLogin, waitForCommand } from './api'
 import type { Goal, UserSession } from './api'
 import MapPanel from './MapPanel'
 import CameraGrid from './CameraGrid'
@@ -54,7 +54,7 @@ export default function App() {
   const [navigationBusy, setNavigationBusy] = useState(false)
   const [localizationBusy, setLocalizationBusy] = useState(false)
   const [navigationStatus, setNavigationStatus] = useState('')
-  useEffect(() => { session().then(setUser).catch(e => setAuthError(e.message)).finally(() => setChecking(false)) }, [])
+  useEffect(() => { session().then(async value => value ?? await tryBypassLogin()).then(setUser).catch(e => setAuthError(e.message)).finally(() => setChecking(false)) }, [])
   useEffect(() => { if (!user) return; let active = true; const refresh = () => getState().then(value => { if (active) { setState(value); setError('') } }).catch(e => { if (!active) return; if (e.message === 'SESSION_EXPIRED') setUser(null); else setError(e.message) }); refresh(); const stopSocket = stateSocket(value => active && setState(value), status => { setSocketStatus(status); if (status === '세션 만료') setUser(null) }); const timer = setInterval(refresh, 10000); return () => { active = false; clearInterval(timer); stopSocket(); } }, [user])
   useEffect(() => { if (!lease) return; const timer = setInterval(() => renewLease(lease.lease_id).then(setLease).catch(() => setLease(null)), 1000); return () => clearInterval(timer) }, [lease?.lease_id])
   if (checking) return <main><p>세션 확인 중입니다…</p></main>

@@ -341,6 +341,18 @@ class Storage:
             return None
         return UserInfo(user_id=UUID(row["id"]), username=row["username"], role=UserRole(row["role"]))
 
+    def find_user(self, username: str) -> UserInfo | None:
+        """Look up a user without verifying a password.
+
+        Only used by the explicit auth-bypass login path
+        (CONTROL_PLATFORM_AUTH_BYPASS=1). Never auto-creates users.
+        """
+        with self._command_lock:
+            row = self.connection.execute("SELECT id, username, role FROM users WHERE username=?", (username,)).fetchone()
+        if row is None:
+            return None
+        return UserInfo(user_id=UUID(row["id"]), username=row["username"], role=UserRole(row["role"]))
+
     def create_session(self, user: UserInfo) -> tuple[str, str]:
         token = secrets.token_urlsafe(32)
         csrf = secrets.token_urlsafe(32)

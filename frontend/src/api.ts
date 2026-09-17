@@ -32,6 +32,18 @@ export async function login(username: string, password: string): Promise<UserSes
   return value.user ?? value
 }
 
+// Auth-bypass auto-login: when the backend runs with
+// CONTROL_PLATFORM_AUTH_BYPASS=1 it issues an operator session without
+// verifying the password. Returns null when the backend refuses, so the
+// caller falls back to the manual login screen.
+export async function tryBypassLogin(): Promise<UserSession | null> {
+  try {
+    return await login('operator', 'auth-bypass-bypass')
+  } catch {
+    return null
+  }
+}
+
 export async function mapMetadata(mapId: string): Promise<MapMetadata> {
   const response = await fetch(`/api/v1/maps/${mapId}`, { credentials: 'include' })
   if (!response.ok) throw new Error(await errorMessage(response, `지도 조회 실패 (${response.status})`))

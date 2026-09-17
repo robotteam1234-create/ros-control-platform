@@ -14,6 +14,12 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="ORIGIN_FORBIDDEN")
     user = request.app.state.storage.authenticate(payload.username, payload.password)
+    if user is None and getattr(request.app.state, "auth_bypass", False):
+        # Explicit operator-approved bypass (CONTROL_PLATFORM_AUTH_BYPASS=1):
+        # issue a normal session for an existing account without verifying
+        # the password. Unknown usernames are still rejected, and every
+        # other gate (Origin, CSRF, lease, stop latch) is unchanged.
+        user = request.app.state.storage.find_user(payload.username)
     if user is None:
         from fastapi import HTTPException
         raise HTTPException(status_code=401, detail="AUTH_REQUIRED")

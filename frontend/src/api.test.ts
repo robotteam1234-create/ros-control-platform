@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { acquireLease, login, releaseLease, renewLease, session, stateSocket } from './api'
+import { acquireLease, login, releaseLease, renewLease, session, stateSocket, tryBypassLogin } from './api'
 import { setMode } from './control'
 
 afterEach(() => vi.restoreAllMocks())
@@ -12,6 +12,16 @@ test('login reports invalid credentials', async () => {
 test('expired session becomes anonymous', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 401 })))
   await expect(session()).resolves.toBeNull()
+})
+
+test('bypass auto-login returns operator session when backend allows it', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ user: { username: 'operator', role: 'OPERATOR' } }), { status: 200 })))
+  await expect(tryBypassLogin()).resolves.toMatchObject({ username: 'operator' })
+})
+
+test('bypass auto-login yields null when backend refuses', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 401 })))
+  await expect(tryBypassLogin()).resolves.toBeNull()
 })
 
 test('state socket resyncs after a sequence gap and reconnects', async () => {
