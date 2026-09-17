@@ -28,8 +28,8 @@ Browser never touches ROS. Backend holds the rosbridge websocket.
   input JPEG bytes -> output `{offset, area, polarity, found}`.
   - Decode grayscale, Gaussian blur (5x5).
   - ROI: bottom 50% (forward floor), optional perspective crop later.
-  - Auto polarity: bright-pixel ratio in ROI. If mean > 127 assume dark floor /
-    white line -> threshold `>200`; else invert for black line (`<60`).
+  - Auto polarity: bright-pixel ratio in ROI. If ROI mean < 127 assume dark floor /
+    white line -> threshold `>200`; else (bright floor) invert for black line (`<60`).
     Manual override `mode: auto|white|black` in op params + UI selector.
   - Morph open 5x5, find contours, keep largest by area.
   - Moments `cx`; `offset = (cx - w/2)/(w/2)` in [-1,1]. `found=false` if
