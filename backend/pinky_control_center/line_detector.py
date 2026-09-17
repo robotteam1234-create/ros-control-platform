@@ -32,7 +32,9 @@ def detect_line(jpeg: bytes, mode: str = "auto") -> LineDetectorResult:
     else:
         raise ValueError("INVALID_VALUE")
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    found = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # OpenCV 3 returns (image, contours, hierarchy); OpenCV 4+ returns (contours, hierarchy).
+    contours = found[0] if len(found) == 2 else found[1]
     if not contours:
         return LineDetectorResult(False, 0.0, 0.0, polarity)
     best = max(contours, key=cv2.contourArea)

@@ -16,13 +16,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from pinky_control_center.adapters.mock import MockRobotAdapter
 from pinky_control_center.adapters.ros import RosbridgeAdapter
-from pinky_control_center.api import alerts, cameras, control, history, mappings, maps, missions, navigation, sensors, session, state, settings
+from pinky_control_center.api import alerts, cameras, control, history, mappings, maps, missions, navigation, recordings, sensors, session, state, settings
 from pinky_control_center.api import line_follow as line_follow_api
 from pinky_control_center.auth import current_user, verify_mutation
 from pinky_control_center.config import load_mock_config, load_ros_config
 from pinky_control_center.models import FormationMode, MockScenario, MockScenarioRequest, UserInfo, UserRole
 from pinky_control_center.map_service import MapService
 from pinky_control_center.camera_service import CameraService
+from pinky_control_center.recording_service import RecordingService
 from pinky_control_center.command_service import CommandService
 from pinky_control_center.teleop_service import TeleopService
 from pinky_control_center.safety_service import SafetyService
@@ -56,6 +57,8 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
         raise ValueError("mode must be mock or ros")
     lease_events: list[str] = []
     storage = Storage(database_path or default_database_path(), clock=storage_clock or utc_now, lease_end_hook=lease_events.append)
+    db_path = Path(database_path or default_database_path())
+    recording_service = RecordingService(db_path.parent / "recordings")
     state_store = StateStore(adapter.snapshot)
     map_service = MapService()
     camera_service = CameraService(adapter.frame)
@@ -114,6 +117,7 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     app.state.mission_service = mission_service
     app.state.line_follow_service = line_follow_service
     app.state.mapping_service = mapping_service
+    app.state.recording_service = recording_service
     app.state.alert_service = alert_service
     app.state.settings_service = settings_service
     app.state.navigation_service = navigation_service
@@ -169,6 +173,15 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
                 if not stopped:
                     alert_service.record_protective_stop_unconfirmed(alert.code, unconfirmed)
         await mission_service.tick()
+        for robot_id in line_follow_service.active_robot_ids():
+            if not line_follow_service.tick_due(robot_id):
+                continue
+            await line_follow_service.tick_once(robot_id)
+            if line_follow_service.take_safety_stop(robot_id):
+                # LOST transition: zero already published by tick_once; route
+                # through the latched protective-stop path (no auto-resume).
+                storage.record_history_safe(event_type="LINE_FOLLOW_LOST", robot_id=robot_id, payload={"state": "LOST"})
+                await protective_stop(robot_id)
         for robot_id in teleop_service.tick():
             await zero_teleop_velocity(robot_id)
         if storage.expire_security():
@@ -189,6 +202,7 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     app.include_router(missions.router)
     app.include_router(line_follow_api.router)
     app.include_router(mappings.router)
+    app.include_router(recordings.router)
     app.include_router(navigation.router)
     app.add_api_websocket_route("/ws/teleop", control.teleop)
     app.include_router(state.create_router(state_store))
