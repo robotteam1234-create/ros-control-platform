@@ -157,6 +157,8 @@ class MockRobotAdapter:
         draw.text((45, 105), robot_id, fill="white", font=font)
         draw.text((45, 140), now.isoformat(timespec="seconds"), fill="white", font=font)
         draw.ellipse((280, 225, 360, 305), fill="white")
+        if robot_id == "robot_1":
+            draw.rectangle((300, 240, 340, 480), fill="white")
         buffer = io.BytesIO()
         quality = {"low": 55, "default": 82, "high": 95}.get(str(self._settings.get("camera_quality", "default")), 82)
         image.save(buffer, format="JPEG", quality=quality)

@@ -194,6 +194,16 @@ export async function waitForCommand(commandId: string, maxAttempts = 30, interv
   throw new Error('명령 완료 시간 초과')
 }
 
+export async function lineFollowAction(robotId: string, action: 'start' | 'stop', lease_id: string, mode: 'auto' | 'white' | 'black' = 'auto') {
+  if (!lease_id) throw new Error('제어권이 필요합니다.')
+  return mutation(`/api/v1/robots/${robotId}/line-follow/actions`, { action, mode, lease_id }, '라인 추종 요청 실패')
+}
+export async function lineFollowStatus(robotId: string) {
+  const response = await fetch(`/api/v1/robots/${robotId}/line-follow`, { credentials: 'include', headers: { 'X-CSRF-Token': csrf() } })
+  if (!response.ok) throw new Error(await errorMessage(response, `라인 추종 조회 실패 (${response.status})`))
+  return response.json()
+}
+
 export function stateSocket(onState: (state: any) => void, onStatus: (status: string) => void) {
   let closed = false
   let socket: WebSocket | undefined
