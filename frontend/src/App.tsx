@@ -13,7 +13,7 @@ import MappingPanel from './MappingPanel'
 import AlertList from './AlertList'
 import SettingsPage from './SettingsPage'
 import HistoryPanel from './HistoryPanel'
-import DashboardTabs, { DashboardTab } from './DashboardTabs'
+import DashboardTabs, { DashboardTab, parseHash } from './DashboardTabs'
 import ControlDock from './ControlDock'
 import PinkyCard from './PinkyCard'
 import { setMode } from './control'
@@ -58,12 +58,14 @@ export default function App() {
   const [navigationBusy, setNavigationBusy] = useState(false)
   const [localizationBusy, setLocalizationBusy] = useState(false)
   const [navigationStatus, setNavigationStatus] = useState('')
-  const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
-    const hash = window.location.hash.replace('#', '')
-    return hash === 'drive' || hash === 'mission' || hash === 'camera' || hash === 'alerts' || hash === 'settings' ? hash as DashboardTab : 'drive'
-  })
+  const [activeTab, setActiveTab] = useState<DashboardTab>(() => parseHash(window.location.hash))
   const [leaseAcquiring, setLeaseAcquiring] = useState(false)
-  useEffect(() => { window.location.hash = activeTab }, [activeTab])
+  useEffect(() => { if (window.location.hash !== `#${activeTab}`) window.location.hash = activeTab }, [activeTab])
+  useEffect(() => {
+    const onHashChange = () => setActiveTab(parseHash(window.location.hash))
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
   useEffect(() => { session().then(setUser).catch(e => setAuthError(e.message)).finally(() => setChecking(false)) }, [])
   useEffect(() => { if (!user) return; let active = true; const refresh = () => getState().then(value => { if (active) { setState(value); setError('') } }).catch(e => { if (!active) return; if (e.message === 'SESSION_EXPIRED') setUser(null); else setError(e.message) }); refresh(); const stopSocket = stateSocket(value => active && setState(value), status => { setSocketStatus(status); if (status === '세션 만료') setUser(null) }); const timer = setInterval(refresh, 10000); return () => { active = false; clearInterval(timer); stopSocket(); } }, [user])
   useEffect(() => { if (!lease) return; const timer = setInterval(() => renewLease(lease.lease_id).then(setLease).catch(() => setLease(null)), 1000); return () => clearInterval(timer) }, [lease?.lease_id])

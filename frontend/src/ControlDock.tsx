@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { resetStop, stop } from './control'
+import { useEffect, useRef, useState } from 'react'
+import { command, resetStop, stop } from './control'
 
 type DockRobot = { robot_id: string; role: string; connection: string }
 
@@ -15,10 +15,36 @@ export default function ControlDock({ robots, selectedRobot, onSelect, leaseLabe
   socketStatus: string
 }) {
   const [result, setResult] = useState('')
+  const [targets, setTargets] = useState<{ robot_id: string; state: string }[]>([])
   const [error, setError] = useState('')
+  const poll = useRef<ReturnType<typeof setTimeout>>()
+  useEffect(() => () => { if (poll.current) clearTimeout(poll.current) }, [])
+  const fail = (message: string) => {
+    setError(message)
+    setResult('')
+  }
   const run = (target: 'all' | 'robot_1' | 'robot_2') => {
+    if (poll.current) clearTimeout(poll.current)
     setError('')
-    stop(target).then(() => setResult('정지 접수됨 · 소프트웨어 정지')).catch(e => setError((e as Error).message))
+    setResult('')
+    setTargets([])
+    stop(target).then(v => {
+      setResult('정지 접수됨 · 소프트웨어 정지 · 로봇별 확인 대기')
+      const check = () => command(v.command_id).then(status => {
+        if (status.targets) setTargets(status.targets)
+        const terminal = ['SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELED'].includes(status.state)
+        if (status.state === 'FAILED' || status.state === 'TIMED_OUT') fail('UNCONFIRMED · 정지 완료를 확인하지 못했습니다.')
+        if (!terminal && status.targets?.some((item: { state: string }) => !['CONFIRMED', 'UNCONFIRMED'].includes(item.state))) poll.current = setTimeout(check, 250)
+      }).catch(e => fail((e as Error).message))
+      poll.current = setTimeout(check, 250)
+    }).catch(e => fail((e as Error).message))
+  }
+  const reset = (target: 'all' | 'robot_1' | 'robot_2', lease: string) => {
+    if (poll.current) clearTimeout(poll.current)
+    setError('')
+    setResult('')
+    setTargets([])
+    resetStop(target, lease).then(() => setResult(`${target} 해제 접수됨 · 자동 주행 없음`)).catch(e => fail((e as Error).message))
   }
   const resetTarget = (selectedRobot === 'robot_1' || selectedRobot === 'robot_2' ? selectedRobot : 'all') as 'all' | 'robot_1' | 'robot_2'
   return (
@@ -41,8 +67,9 @@ export default function ControlDock({ robots, selectedRobot, onSelect, leaseLabe
         <span>소프트웨어 정지이며 물리 안전 장치가 아닙니다.</span>
         <button disabled={role === 'VIEWER'} onClick={() => run('all')}>전체 정지</button>
         <button disabled={role === 'VIEWER'} onClick={() => run(resetTarget)}>{resetTarget} 정지</button>
-        {leaseLabel && <button className="reset" onClick={() => resetStop(resetTarget, leaseLabel).then(() => setResult(`${resetTarget} 해제 접수됨 · 자동 주행 없음`)).catch(e => setError((e as Error).message))}>{resetTarget} 정지 해제</button>}
+        {leaseLabel && <button className="reset" onClick={() => reset(resetTarget, leaseLabel)}>{resetTarget} 정지 해제</button>}
         {result && <b>{result}</b>}
+        {targets.map(item => <span key={item.robot_id}>{item.robot_id}: {item.state}</span>)}
         {error && <em>{error}</em>}
       </div>
     </div>
