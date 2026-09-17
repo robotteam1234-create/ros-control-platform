@@ -26,7 +26,7 @@ robots:
       control_command_type: pinky_control_interfaces/srv/ControlCommand
       control_available: true
     camera:
-      enabled: false
+      enabled: true
       throttle_rate_ms: 100
       fragment_size: 65536
   - robot_id: robot_2
@@ -55,6 +55,6 @@ robots:
       follow_command_type: pinky_control_interfaces/srv/FollowCommand
       follow_available: false
     camera:
-      enabled: false
-      throttle_rate_ms: 100
+      enabled: true
+      throttle_rate_ms: 200
       fragment_size: 65536
