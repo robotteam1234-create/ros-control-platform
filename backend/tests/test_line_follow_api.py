@@ -115,6 +115,17 @@ def test_line_follow_start_maps_camera_stalled_to_reason_code(tmp_path: Path):
         assert command["reason_code"] == "CAMERA_STALLED"
 
 
+def test_line_follow_status_needs_only_cookies(tmp_path: Path):
+    app = create_app(database_path=tmp_path / "control.db", start_command_worker=False)
+    with TestClient(app) as client:
+        app.state.storage.create_or_reset_user("operator", "operator-password", UserRole.OPERATOR)
+        login = client.post("/api/v1/session", json={"username": "operator", "password": "operator-password"}, headers={"origin": ORIGIN})
+        assert login.status_code == 200
+        r = client.get("/api/v1/robots/robot_1/line-follow")
+        assert r.status_code == 200
+        assert r.json() == {"robot_id": "robot_1", "state": "IDLE"}
+
+
 def test_line_follow_start_rejects_stalled_robot_2_scenario(tmp_path: Path):
     app = create_app(database_path=tmp_path / "control.db", start_command_worker=False)
     with TestClient(app) as client:

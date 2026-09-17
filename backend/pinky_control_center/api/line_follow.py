@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from pinky_control_center.api.control import operator
 from pinky_control_center.api.missions import leased_operator, request_id
+from pinky_control_center.auth import current_user
 from pinky_control_center.command_service import QueueFull
 
 router = APIRouter(prefix="/api/v1")
@@ -36,7 +37,7 @@ async def line_follow_action(robot_id: str, payload: dict, request: Request, use
 
 
 @router.get("/robots/{robot_id}/line-follow")
-async def line_follow_status(robot_id: str, request: Request, user=Depends(operator)):
+async def line_follow_status(robot_id: str, request: Request, user=Depends(current_user)):
     if robot_id != "robot_1":
         raise HTTPException(404, detail="ROBOT_NOT_FOUND")
     return request.app.state.line_follow_service.status(robot_id)
