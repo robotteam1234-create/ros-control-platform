@@ -106,6 +106,9 @@ export default function Teleop({ robotId, lease, mode, stopLatched }: { robotId:
     {stopLatched === true && <p>정지 해제 후 모드 전환 가능</p>}
     <button disabled={!lease || mode !== 'MANUAL'} onPointerDown={() => hold(MANUAL_LINEAR_MPS, 0)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}>전진</button>
     <button disabled={!lease || mode !== 'MANUAL'} onPointerDown={() => hold(0, MANUAL_TURN_RPS)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}>좌회전</button>
+    <button disabled={!lease || mode !== 'MANUAL'} onPointerDown={() => hold(-MANUAL_LINEAR_MPS, 0)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}>후진</button>
+    <button disabled={!lease || mode !== 'MANUAL'} onPointerDown={() => hold(0, -MANUAL_TURN_RPS)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}>우회전</button>
+    <button disabled={!lease || mode !== 'MANUAL'} onClick={stop}>정지</button>
     <span>{active ? '전송 중' : '정지'} · 현재 모드 {mode}</span>
     {modeError && <em>{modeError}</em>}
   </section>
