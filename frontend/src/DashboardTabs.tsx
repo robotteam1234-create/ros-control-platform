@@ -1,5 +1,10 @@
 export type DashboardTab = 'drive' | 'mission' | 'camera' | 'alerts' | 'settings'
 
+export function parseHash(hash: string): DashboardTab {
+  const clean = hash.replace('#', '')
+  return clean === 'drive' || clean === 'mission' || clean === 'camera' || clean === 'alerts' || clean === 'settings' ? clean as DashboardTab : 'drive'
+}
+
 const TABS: { id: DashboardTab; label: string }[] = [
   { id: 'drive', label: '관제 Drive' },
   { id: 'mission', label: '편대·임무' },
