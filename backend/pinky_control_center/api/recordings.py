@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from pinky_control_center.api.control import operator
 from pinky_control_center.api.missions import leased_operator, request_id
-from pinky_control_center.auth import verify_mutation
+from pinky_control_center.auth import current_user, verify_mutation
 from pinky_control_center.models import UserInfo
 
 router = APIRouter(prefix="/api/v1")
@@ -48,5 +48,5 @@ async def stop_recording(payload: dict[str, object], request: Request, user: Use
 
 
 @router.get("/recordings")
-async def recording_status(request: Request, user: UserInfo = Depends(operator)) -> dict[str, object]:
+async def recording_status(request: Request, user: UserInfo = Depends(current_user)) -> dict[str, object]:
     return {"active": _service(request).active()}

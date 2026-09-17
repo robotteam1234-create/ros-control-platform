@@ -49,6 +49,27 @@ def test_recordings_lifecycle(tmp_path):
         assert r.json()["frames"] == 0
 
 
+def test_recordings_status_needs_only_cookies(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from pinky_control_center.main import create_app
+    from pinky_control_center.models import UserRole
+
+    origin = "http://localhost:5173"
+    app = create_app(database_path=tmp_path / "control.db", start_command_worker=False)
+    with TestClient(app) as client:
+        app.state.storage.create_or_reset_user("viewer", "viewer-password", UserRole.OPERATOR)
+        login = client.post(
+            "/api/v1/session",
+            json={"username": "viewer", "password": "viewer-password"},
+            headers={"origin": origin},
+        )
+        assert login.status_code == 200
+        r = client.get("/api/v1/recordings")
+        assert r.status_code == 200, r.text
+        assert "active" in r.json()
+
+
 def test_dataset_helpers(tmp_path):
     import json
 
