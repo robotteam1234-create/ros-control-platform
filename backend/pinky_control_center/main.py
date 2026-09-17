@@ -184,6 +184,10 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
                 await protective_stop(robot_id)
         for robot_id in teleop_service.tick():
             await zero_teleop_velocity(robot_id)
+        for robot_id in ("robot_1", "robot_2"):
+            frame = adapter.frame(robot_id)
+            if frame is not None:
+                recording_service.record(robot_id, frame)
         if storage.expire_security():
             # An expired control identity invalidates manual authority for both robots.
             await protective_stop("robot_1")
