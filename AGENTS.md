@@ -1,6 +1,22 @@
+<!-- Parent: ../AGENTS.md -->
+<!-- Generated: 2026-09-17 | Updated: 2026-09-17 -->
+
 # AGENTS.md — control-platform
 
 Pinky Pro 2-robot control platform: FastAPI backend (`backend/`), React+TS frontend (`frontend/`), rosbridge adapters, SQLite. `robot_1` MASTER domain 12, `robot_2` SLAVE domain 13 — deployment invariants, never change.
+
+## Subdirectories
+
+| Directory | Purpose |
+|-----------|---------|
+| `backend/` | FastAPI app `pinky_control_center`, SQLite storage, mock/rosbridge adapters, pytest suite (see `backend/AGENTS.md`) |
+| `frontend/` | React 18 + TS + Vite SPA, vitest tests (see `frontend/AGENTS.md`) |
+| `ros/` | Robot-side ROS 2 Jazzy: watchdog (sole `/cmd_vel` publisher), msg/srv interfaces, Nav2 stack, camera publishers (see `ros/AGENTS.md`) |
+| `deployment/` | Launch files, nginx, systemd, ops scripts (see `deployment/AGENTS.md`) |
+| `control_client/` | Web-API drive/test client (lease → teleop WS) (see `control_client/AGENTS.md`) |
+| `lap585/` | Vendored lap585 mapping stack (see `lap585/AGENTS.md`) |
+| `learning/` | Line-follow ML experiments: OpenCV baseline + YOLO training (see `learning/AGENTS.md`) |
+| `docs/` | Contract docs, TDD records, superpowers plans/specs (see `docs/AGENTS.md`) |
 
 ## Commands
 
