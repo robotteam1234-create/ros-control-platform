@@ -205,6 +205,16 @@ export async function lineFollowStatus(robotId: string) {
   return response.json()
 }
 
+export async function recordAction(action: 'start' | 'stop', robotId: string, lease_id: string, label = 'run') {
+  if (!lease_id) throw new Error('제어권이 필요합니다.')
+  return mutation(`/api/v1/recordings/${action}`, { robot_id: robotId, label, lease_id }, '녹화 요청 실패')
+}
+export async function recordStatus() {
+  const response = await fetch('/api/v1/recordings', { credentials: 'include' })
+  if (!response.ok) throw new Error(await errorMessage(response, `녹화 조회 실패 (${response.status})`))
+  return response.json()
+}
+
 export function stateSocket(onState: (state: any) => void, onStatus: (status: string) => void) {
   let closed = false
   let socket: WebSocket | undefined
