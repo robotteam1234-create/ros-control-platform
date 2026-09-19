@@ -1,4 +1,6 @@
 import asyncio
+import json
+import time
 from pathlib import Path
 
 import pytest
@@ -95,3 +97,47 @@ def test_unsupported_robot_rejected(tmp_path):
     runner = MappingRunner(lap585_dir=lap, overlay_dir=tmp_path, state_dir=tmp_path / "st")
     with pytest.raises(ValueError):
         asyncio.run(runner.start("robot_2"))
+
+
+def test_preflight_offline_rejected(tmp_path):
+    lap = _write(tmp_path, FAKE)
+    runner = MappingRunner(
+        lap585_dir=lap, overlay_dir=tmp_path, state_dir=tmp_path / "st",
+        preflight_state=lambda: (False, True),
+    )
+    with pytest.raises(ValueError):
+        asyncio.run(runner.start("robot_1"))
+
+
+def test_preflight_scan_stale_rejected(tmp_path):
+    lap = _write(tmp_path, FAKE)
+    runner = MappingRunner(
+        lap585_dir=lap, overlay_dir=tmp_path, state_dir=tmp_path / "st",
+        preflight_state=lambda: (True, False),
+    )
+    with pytest.raises(ValueError):
+        asyncio.run(runner.start("robot_1"))
+
+
+def test_orphan_detected_and_killed(tmp_path):
+    import subprocess as sp
+
+    sleeper = sp.Popen(["sleep", "30"], start_new_session=True)
+    try:
+        mapping_dir = tmp_path / "st" / "mapping"
+        mapping_dir.mkdir(parents=True)
+        (mapping_dir / "run.json").write_text(
+            json.dumps({"pid": sleeper.pid, "mapping_id": "m1"}), encoding="utf-8")
+        runner = MappingRunner(lap585_dir=tmp_path, overlay_dir=tmp_path, state_dir=tmp_path / "st")
+        orphan = runner.detect_orphan()
+        assert orphan is not None and orphan["pid"] == sleeper.pid
+        asyncio.run(runner.kill_orphan())
+        assert sleeper.poll() is not None or True
+        for _ in range(30):
+            if sleeper.poll() is not None:
+                break
+            time.sleep(0.1)
+        assert sleeper.poll() is not None
+    finally:
+        if sleeper.poll() is None:
+            sleeper.kill()
