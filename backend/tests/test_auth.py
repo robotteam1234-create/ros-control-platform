@@ -140,3 +140,12 @@ def test_validation_error_with_bytes_body_returns_422_not_500(tmp_path):
     assert response.status_code in (400, 422)
     if response.status_code == 422:
         assert response.json()["error"]["code"] == "INVALID_VALUE"
+
+
+def test_api_v1_health_alias(tmp_path):
+    from fastapi.testclient import TestClient
+    from pinky_control_center.main import create_app
+    client = TestClient(create_app(database_path=tmp_path / "control.db", start_command_worker=False))
+    response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "mode": "mock"}

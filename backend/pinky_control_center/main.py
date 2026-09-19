@@ -292,6 +292,11 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     async def health() -> dict[str, str]:
         return {"status": "ok", "mode": mode}
 
+    @app.get("/api/v1/health")
+    async def api_health() -> dict[str, str]:
+        """UI-facing alias of /health (same envelope, under the API prefix)."""
+        return {"status": "ok", "mode": mode}
+
     @app.get("/api/v1/cameras/{robot_id}")
     async def camera(robot_id: Literal["robot_1", "robot_2"], _user: UserInfo = Depends(current_user)) -> Response:
         frame = adapter.frame(robot_id)
