@@ -54,7 +54,7 @@ pinky_control_bringup/
 
 - Both runtime scripts source `/opt/ros/jazzy`, `$PINKY_PRO_WS` (default `/home/pinky/pinky_pro`), `$PINKY_CONTROL_WS` (default `/home/pinky/dev_ws/wj`); enable `set -u` only after sourcing; `unset ROS_LOCALHOST_ONLY`; `export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET`, `ROS2CLI_NO_DAEMON=1`; `PATH=/usr/bin:/bin` first. All of this is copied verbatim from the proven `start-pinky-robot2-*.sh` behavior.
 - `robot_session.sh` generalizes `start-pinky-robot2-session.sh`: watchdog gets `-p robot_id:="${ROBOT_ID}"`; everything else (clamp 0.15/0.50, topic names, duplicate `pgrep` guards with bracket patterns, `setsid` process groups, Ctrl+C group teardown, `wait -n` supervisor, lidar `/start_motor` before Nav2) unchanged. Duplicate-domain guard: fail if `ROS_DOMAIN_ID` is not 12 or 13 (typo protection, mirrors the robot_2=13 hard-fail).
-- `robot_bringup.sh` runs `ros2 launch pinky_bringup bringup_robot.launch.xml` in the foreground (launch process = unit process, so a bringup crash is visible to systemd), gates on `/odom` + `/scan` publishers before reporting success.
+- `robot_bringup.sh` runs `ros2 launch pinky_bringup bringup_robot.launch.xml` in the foreground (launch process = unit process, so a bringup crash is visible to systemd), gates on `/odom` + `/scan` publishers before reporting success, and stops both legacy `rosy-session-*` units at startup as a migration guard.
 
 ### Units
 
@@ -67,7 +67,7 @@ pinky_control_bringup/
 
 Runs **on the robot** (no sudo anywhere):
 1. Verifies: workspaces built (`pinky_bringup`, `pinky_control_watchdog`, `pinky_control_navigation` prefixes resolvable), rosbridge present.
-2. Copies `scripts/` → `~/pinky/startup/bin/`, env file → `~/.config/pinky-control/<instance>.env`, renders unit templates (sed: `@BIN_DIR@`) → `~/.config/systemd/user/`.
+2. Copies `scripts/` → `~/pinky/startup/bin/` (fixed convention, also hardcoded in the unit `ExecStart=%h/pinky/startup/bin/...` — no rendering), env file → `~/.config/pinky-control/<instance>.env`, unit templates → `~/.config/systemd/user/`.
 3. `systemctl --user daemon-reload`; disables (not deletes) `rosy-session-bringup.service` and `rosy-session-control.service`.
 4. Checks linger (`loginctl show-user`); attempts `loginctl enable-linger` for the current user, warns with exact remediation if it fails.
 5. `systemctl --user enable --now pinky-bringup@<i>.service pinky-session@<i>.service`.
