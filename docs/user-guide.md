@@ -239,38 +239,29 @@ Gazebo 또는 실물에서 목표 주행을 시험하려면 다음 외부 연결
 - 슬레이브 follow controller와 정지 latch/watchdog
 - `map → robot_N/odom → robot_N/base_footprint` TF 검증
 
-robot_2 실물 시험의 권장 기동 방법은 `deployment/scripts/start-pinky-robot2-all.sh` 하나로 hardware bringup과 관제 세션을 함께 실행하는 것이다. 이 스크립트는 부팅 때 domain 0으로 실행되는 기존 `rosy-session-bringup.service`와 `rosy-session-control.service`를 먼저 중지하고, `ROS_DOMAIN_ID=13`에서 `/odom`·`/scan`을 확인한 뒤 `start-pinky-robot2-session.sh`를 실행한다. 하위 session script는 watchdog, Nav2, `rosbridge_websocket:9091`을 한 수명 주기로 관리하며 카메라 프로세스는 시작하지 않는다. 두 스크립트 모두 `ROS_LOCALHOST_ONLY`를 해제한다.
+robot_2 실물 시험의 권장 기동 방법은 systemd user unit 기반 부팅 자동 기동이다. `ros/pinky_control_bringup` 패키지가 하드웨어 bringup(`pinky-bringup@<robot>`)과 관제 세션(rosbridge·watchdog·Nav2, `pinky-session@<robot>`)을 로봇별로 관리하며, 두 unit은 부팅 때 자동으로 시작된다. 세션 unit은 bringup unit에 의존하므로 세션 재시작이 시리얼 장치를 다시 열지 않는다. `ROS_LOCALHOST_ONLY`는 해제되고 `ROS_DOMAIN_ID`는 환경 파일(`robot_1=12`, `robot_2=13`)에서 고정된다.
 
-두 스크립트를 로봇에 복사하고 실행 권한을 부여한다.
-
-```bash
-scp deployment/scripts/start-pinky-robot2-session.sh \
-  pinky@<robot-2-ip>:/home/pinky/start-pinky-robot2-session.sh
-scp deployment/scripts/start-pinky-robot2-all.sh \
-  pinky@<robot-2-ip>:/home/pinky/start-robot2.sh
-ssh pinky@<robot-2-ip> \
-  'chmod +x /home/pinky/start-pinky-robot2-session.sh /home/pinky/start-robot2.sh'
-```
-
-이후 로봇을 재부팅할 때마다 로봇 Wi-Fi 연결과 SSH 접속 후 아래 한 줄만 실행한다.
-
-```bash
-/home/pinky/start-robot2.sh
-```
-
-`Robot_2 all-in-one session is ready.`가 출력되면 웹을 새로고침하고 `robot_2`를 선택한다. 재부팅하면 AMCL 추정 위치는 유지되지 않으므로 실제 위치와 방향을 지도에 지정하고 `위치 재설정(AMCL)`을 반드시 한 번 수행한다. `Ctrl+C`를 누르면 wrapper가 session을 먼저 종료해 속도 출력을 멈춘 뒤 hardware bringup을 종료한다. SSH 연결이 끊어지면 세션도 종료되는 foreground 운용이 기본이다.
-
-control interface와 watchdog를 처음 설치할 때는 로봇에서 control workspace를 빌드한다. 저장소의 `ros/pinky_control_interfaces`와 `ros/pinky_control_watchdog` 디렉터리를 `/home/pinky/dev_ws/wj/src/` 아래에 복사한 뒤 다음을 실행한다.
+최초 설치는 로봇에서 한 번만 실행한다. 저장소의 `ros/pinky_control_bringup`을 `/home/pinky/dev_ws/wj/src/` 아래에 복사해 빌드한 뒤 설치 스크립트를 실행한다.
 
 ```bash
 cd /home/pinky/dev_ws/wj
-colcon build --symlink-install --packages-select pinky_control_interfaces pinky_control_watchdog
+colcon build --symlink-install --packages-select pinky_control_bringup
+./install/pinky_control_bringup/share/pinky_control_bringup/scripts/install.sh robot_2
+```
+
+설치가 끝나면 로봇을 재부팅해도 SSH로 무언가를 실행할 필요가 없다. 웹을 새로고침하고 `robot_2`를 선택한다. 재부팅하면 AMCL 추정 위치는 유지되지 않으므로 실제 위치와 방향을 지도에 지정하고 `위치 재설정(AMCL)`을 반드시 한 번 수행한다. 부팅 직후 watchdog는 정지 래치가 걸린 상태이므로 제어권 획득 → `robot_2 정지 해제` → `MANUAL 모드 전환` 순서로 준비한다.
+
+control interface와 watchdog를 처음 설치할 때는 로봇에서 control workspace를 빌드한다. 저장소의 `ros/pinky_control_interfaces`, `ros/pinky_control_watchdog`, `ros/pinky_control_navigation` 디렉터리를 `/home/pinky/dev_ws/wj/src/` 아래에 복사한 뒤 다음을 실행한다.
+
+```bash
+cd /home/pinky/dev_ws/wj
+colcon build --symlink-install --packages-select pinky_control_interfaces pinky_control_watchdog pinky_control_navigation
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ```
 
-그 다음 `start-robot2.sh`를 실행한다. 하위 session script의 READY 출력에 `control: /control/manual_velocity -> /cmd_vel (watchdog)`가 있어야 한다.
+설치 스크립트는 이 workspace가 빌드되어 있어야 통과한다. 하위 session script의 READY 로그에 `control: /control/manual_velocity -> /cmd_vel (watchdog)`가 있어야 한다.
 
-문제 분리를 위해 기존 `start-pinky-robot2-session.sh`만 직접 실행할 수도 있지만 이 경우 hardware bringup은 별도 터미널에서 domain 13으로 실행해야 한다. 통합 wrapper는 bringup까지 소유하고 종료한다. 실행 중인 로봇은 정지 상태에서 시험한다.
+로그와 상태 확인은 `systemctl --user status 'pinky-*'`와 `journalctl --user -u 'pinky-*' -f`로 한다. 수동 기동이 필요한 진단 상황에서는 기존 `deployment/scripts/start-pinky-robot2-*.sh`를 그대로 쓸 수 있지만, 이 스크립트들은 unit과 동시에 실행할 수 없다(중복 프로세스 감지로 실패한다). 실행 중인 로봇은 정지 상태에서 시험한다.
 
 현재 단계의 실물 자동 주행은 robot_2 한 대의 Nav2 action server·AMCL·`map→odom→base_footprint` TF·정적 occupancy map을 확인한 뒤 저속으로 시작한다. 지도 클릭은 명시적 이동 버튼 전까지 주행을 시작하지 않으며, 로봇을 들어 옮긴 뒤에는 정적 지도 대신 AMCL 위치를 재설정한다. ROS 실행과 현장 인수 절차는 프로젝트 루트의 `runbook.md`와 `acceptance-report.md`를 따른다.

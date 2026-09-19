@@ -157,21 +157,22 @@ workspace (`~/dev_ws/wj`)를 사용한다. 두 프로세스는 ROS_DOMAIN_ID 13�
 토픽 graph로 연결되며, session script가 자체적으로 `wj/install/setup.bash`를
 source한다.
 
-일상적인 재부팅 후 기동은 위 두 workspace와 기존 부팅 서비스를 통합 관리하는
-wrapper 한 개를 사용한다. 로봇이 부팅된 뒤 PC를 로봇 Wi-Fi에 연결하고 다음을
-실행한다.
+일상적인 재부팅 후 기동은 systemd user unit(`pinky-bringup@<robot>`, `pinky-session@<robot>`)이 담당한다. 최초 1회는 로봇마다 설치 스크립트를 실행한다. 저장소의 `ros/pinky_control_bringup`을 로봇의 `/home/pinky/dev_ws/wj/src/` 아래에 복사해 `colcon build --symlink-install --packages-select pinky_control_bringup`으로 빌드한 뒤, 다음을 실행한다.
 
 ```bash
-ssh pinky@192.168.4.1
-/home/pinky/start-robot2.sh
+~/dev_ws/wj/install/pinky_control_bringup/share/pinky_control_bringup/scripts/install.sh robot_2
 ```
 
-wrapper는 기존 domain 0 user service를 중지하고 domain 13의 hardware bringup을
-시작한다. `/odom`·`/scan` publisher를 확인한 뒤 rosbridge·watchdog·Nav2·카메라
-session을 시작하며, action server와 compressed camera가 확인된 뒤
-`Robot_2 all-in-one session is ready.`를 출력한다. `Ctrl+C` 한 번으로 session과
-bringup을 역순 종료한다. 재부팅 뒤에는 AMCL 위치가 사라지므로 READY 이후에도
-웹에서 실제 위치·방향을 지정하고 `위치 재설정(AMCL)`을 수행해야 한다.
+설치 스크립트는 workspace 빌드 여부를 확인하고, payload를 `~/pinky/startup/bin/`에, 환경 파일을 `~/.config/pinky-control/<robot>.env`에, unit을 `~/.config/systemd/user/`에 복사한 뒤 기존 `rosy-session-*` 부팅 서비스를 비활성화하고 linger를 확인한 뒤 두 unit을 `enable --now` 한다. sudo는 필요 없다. 이후 재부팅에서는 SSH 접속 없이 두 unit이 자동으로 시작된다. robot_1은 control workspace가 아직 없으므로 `docs/user-guide.md`의 절차로 workspace를 먼저 빌드해야 설치가 통과한다.
+
+상태와 로그는 다음으로 확인한다.
+
+```bash
+systemctl --user status 'pinky-*'
+journalctl --user -u 'pinky-*' -f
+```
+
+unit이 정상이면 `[pinky-bringup] ready`와 `[pinky-session] ready`가 로그에 남는다. 재부팅 뒤에는 AMCL 위치가 사라지므로 웹에서 실제 위치·방향을 지정하고 `위치 재설정(AMCL)`을 수행해야 한다. 세션 비정상 종료 시 systemd가 5초 뒤 재시작하며(120초당 최대 5회), 반복 실패는 `journalctl`로 원인을 확인한다.
 
 아래의 터미널 A/B 절차는 통합 wrapper가 실패했을 때의 분리 진단 절차다.
 
