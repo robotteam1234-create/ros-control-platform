@@ -135,6 +135,25 @@ export async function mappingAction(id: string, action: string, lease: string) {
   if (!lease) throw new Error('제어권이 필요합니다.')
   return mutation(`/api/v1/mappings/${id}/actions`, { action, lease_id: lease }, '매핑 요청 실패')
 }
+
+export type MappingStatus = { mapping_id: string; state: string; stage_index?: number; stage?: string; message?: string; reason?: string }
+
+export async function mappingStatus(id: string): Promise<MappingStatus> {
+  const response = await fetch(`/api/v1/mappings/${id}`, { credentials: 'include' })
+  if (!response.ok) throw new Error(await errorMessage(response, `매핑 상태 조회 실패 (${response.status})`))
+  return response.json() as Promise<MappingStatus>
+}
+
+export async function mappingLog(id: string, tail = 100): Promise<string[]> {
+  const response = await fetch(`/api/v1/mappings/${id}/log?tail=${tail}`, { credentials: 'include' })
+  if (!response.ok) throw new Error(await errorMessage(response, `매핑 로그 조회 실패 (${response.status})`))
+  const body = (await response.json()) as { lines: string[] }
+  return body.lines
+}
+
+export async function mappingImport(id: string): Promise<{ imported_map_id: string }> {
+  return mutation(`/api/v1/mappings/${id}/import`, {}, '매핑 결과 가져오기 실패') as Promise<{ imported_map_id: string }>
+}
 export async function getMission(missionId: string): Promise<Mission> {
   const response = await fetch(`/api/v1/missions/${missionId}`, { credentials: 'include' })
   if (!response.ok) throw new Error(await errorMessage(response, `임무 조회 실패 (${response.status})`))
