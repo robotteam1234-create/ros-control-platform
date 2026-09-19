@@ -18,6 +18,7 @@ Robot-side ROS 2 (Jazzy) code: the safety watchdog that is the **sole `/cmd_vel`
 | `pinky_control_interfaces/` | ament_cmake package: `ControlStatus.msg` + `ControlCommand.srv` (see its `AGENTS.md`) |
 | `pinky_control_watchdog/` | ament_python: `ManualVelocityWatchdog` — single safety mediator, only `/cmd_vel` publisher (see its `AGENTS.md`) |
 | `pinky_control_navigation/` | ament_python: static-map Nav2 launch, map assets, params, AMCL lifecycle gate (see its `AGENTS.md`) |
+| `pinky_control_bringup/` | ament_python: boot auto-start — generic bringup/session scripts, template systemd user units, per-robot env files, on-robot installer (see its `AGENTS.md`) |
 
 ## For AI Agents
 
