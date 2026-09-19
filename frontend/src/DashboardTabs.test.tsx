@@ -14,3 +14,16 @@ test('tabs switch drive to mission', () => {
   fireEvent.click(root.getByRole('tab', { name: /편대/ }))
   expect(onChange).toHaveBeenCalledWith('mission')
 })
+
+import { parseHash } from './DashboardTabs'
+
+test('control tab is first and legacy camera hash maps to control', () => {
+  const onChange = vi.fn()
+  const view = render(<DashboardTabs active="control" onChange={onChange} />)
+  const root = within(view.container)
+  expect(root.getAllByRole('tab')[0].textContent).toBe('제어 Control')
+  expect(root.getByRole('tab', { name: /제어 Control/ })).toHaveAttribute('aria-selected', 'true')
+  expect(parseHash('#camera')).toBe('control')
+  expect(parseHash('#control')).toBe('control')
+  expect(parseHash('')).toBe('drive')
+})

@@ -1,14 +1,15 @@
-export type DashboardTab = 'drive' | 'mission' | 'camera' | 'alerts' | 'settings'
+export type DashboardTab = 'control' | 'drive' | 'mission' | 'alerts' | 'settings'
 
 export function parseHash(hash: string): DashboardTab {
   const clean = hash.replace('#', '')
-  return clean === 'drive' || clean === 'mission' || clean === 'camera' || clean === 'alerts' || clean === 'settings' ? clean as DashboardTab : 'drive'
+  if (clean === 'camera') return 'control' // legacy camera tab merged into control
+  return clean === 'control' || clean === 'drive' || clean === 'mission' || clean === 'alerts' || clean === 'settings' ? clean as DashboardTab : 'drive'
 }
 
 const TABS: { id: DashboardTab; label: string }[] = [
+  { id: 'control', label: '제어 Control' },
   { id: 'drive', label: '관제 Drive' },
   { id: 'mission', label: '편대·임무' },
-  { id: 'camera', label: '카메라' },
   { id: 'alerts', label: '알림·이력' },
   { id: 'settings', label: '설정' },
 ]
