@@ -39,6 +39,7 @@ def _client(tmp_path):
     fake = FakeRunner()
     app.state.mapping_runner = fake
     app.state.mapping_service.runner = fake
+
     client = TestClient(app)
     with client:
         app.state.storage.create_or_reset_user("operator", "operator-password", UserRole.OPERATOR)
@@ -61,6 +62,10 @@ def _dispatch(app):
 
 def test_start_pause_status_flow(tmp_path):
     for client, app, headers in _client(tmp_path):
+        stops: list[str] = []
+        async def record_stop(robot_id: str):
+            stops.append(robot_id)
+        app.state.mapping_service.on_stop = record_stop
         mapping_id = _create_mapping(client, headers)
         r = client.post(f"/api/v1/mappings/{mapping_id}/actions", json={"request_id": str(uuid4()), "action": "start", "robot_id": "robot_1", "lease_id": headers["x-control-lease-id"]}, headers=headers)
         assert r.status_code == 202
@@ -74,6 +79,7 @@ def test_start_pause_status_flow(tmp_path):
         assert r.status_code == 202
         _dispatch(app)
         assert client.get(f"/api/v1/mappings/{mapping_id}", headers=headers).json()["state"] == "PAUSED"
+        assert stops == ["robot_1"]
 
 
 def test_start_rejects_unsupported_robot(tmp_path):

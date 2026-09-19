@@ -182,6 +182,7 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
         teleop_service.protective_stop(robot_id)
         state_store.disconnect(robot_id)
         await command_service.protective_stop(robot_id)
+    mapping_service.on_stop = protective_stop
 
     async def zero_teleop_velocity(robot_id: str) -> None:
         """Clear an expired deadman input without latching an operator stop.

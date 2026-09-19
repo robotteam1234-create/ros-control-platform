@@ -10,6 +10,7 @@ class MappingService:
         self.storage = storage
         self.settings_provider = settings_provider
         self.runner = runner
+        self.on_stop = None
         self.active_id: str | None = None
 
     def create(self, user, payload: dict) -> dict:
@@ -41,6 +42,8 @@ class MappingService:
                 await self.runner.launch(robot_id, lease_id)
             elif action in ("pause", "cancel"):
                 await self.runner.cancel()
+                if self.on_stop is not None:
+                    await self.on_stop(robot_id)
         except ValueError as error:
             return False, {"reason_code": str(error)}
         mapping_state = {"start": "RUNNING", "resume": "RUNNING", "pause": "PAUSED", "cancel": "CANCELLED"}.get(action, "VALIDATED")
