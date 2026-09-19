@@ -7,14 +7,21 @@ import { STAGE_INFO } from './mappingStages'
 describe('MappingPanel', () => {
   it('shows mapping stages', () => {
     const view = render(<MappingPanel lease={null} mapId="map_260905" />)
-    expect(within(view.container).getByText(/wall_follow/i)).toBeTruthy()
+    expect(within(view.container).getByText(/벽 따라가기/)).toBeTruthy()
+    expect(within(view.container).getByText(/프론티어 탐사/)).toBeTruthy()
+  })
+
+  it('shows status chip and idles before start', () => {
+    const view = render(<MappingPanel lease="lease-1" mapId="map_260905" />)
+    expect(within(view.container).getByTestId('mapping-state-chip').textContent).toBe('IDLE')
+    expect(within(view.container).getByRole('button', { name: '자동 매핑 시작' })).toBeTruthy()
   })
 
   it('shows lap585 stage requirements and safe speed caps', () => {
     const view = render(<MappingPanel lease="lease-1" mapId="map_260905" />)
     expect(within(view.container).getByText(/라이다만/i)).toBeTruthy()
     expect(within(view.container).getByText(/0\.15 m\/s/i)).toBeTruthy()
-    expect(within(view.container).getAllByText(/\(SLAM 필요\)/)).toHaveLength(3)
+    expect(within(view.container).getAllByText(/SLAM 필요/)).toHaveLength(3)
   })
 })
 
@@ -123,7 +130,7 @@ describe('MappingPanel live run', () => {
       return json({}, 404)
     }))
     const view = render(<MappingPanel lease="lease-1" mapId="mock_lab" />)
-    fireEvent.click(within(view.container).getByRole('button', { name: '매핑 시작' }))
+    fireEvent.click(within(view.container).getByRole('button', { name: '자동 매핑 시작' }))
     mappingState = 'COMPLETED'
     await waitFor(() => expect(within(view.container).getByTestId('mapping-import')).toBeTruthy(), { timeout: 4000 })
     fireEvent.click(within(view.container).getByTestId('mapping-import'))
