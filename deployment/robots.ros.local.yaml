@@ -1,14 +1,16 @@
-# T12 handoff configuration. Secrets are read from environment variables and
-# are never stored in this file. Domain IDs are deployment invariants. Each
-# robot's rosbridge endpoint is the isolation boundary, so these mappings use
-# the global topic names emitted by the real Pinky bringup.
+# Field configuration. Secrets are read from environment variables and
+# are never stored in this file. Domain IDs are deployment invariants.
+# Both robots run pinky-session@ onboard (ros/pinky_control_bringup),
+# so each bridge URL points at the robot's own rosbridge — the isolation
+# boundary lives on the robot, and these mappings keep the global topic
+# names emitted by the real Pinky bringup.
 robots:
   - robot_id: robot_1
     name: Pinky Master
     role: MASTER
     namespace: /robot_1
     domain_id: 12
-    bridge_url: ws://127.0.0.1:9090
+    bridge_url: ws://192.168.1.201:9090
     topics:
       odom: /odom
       battery_percent: /battery/percent
@@ -34,7 +36,7 @@ robots:
     role: SLAVE
     namespace: /robot_2
     domain_id: 13
-    bridge_url: ws://127.0.0.1:9091
+    bridge_url: ws://192.168.1.202:9091
     topics:
       odom: /odom
       battery_percent: /battery/percent
