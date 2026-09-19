@@ -434,3 +434,30 @@ def test_rosbridge_map_streaming_subscribe_route_and_unsubscribe() -> None:
         await adapter.close()
 
     asyncio.run(exercise())
+
+
+def test_rosbridge_scan_fresh_tracks_last_scan() -> None:
+    async def exercise() -> None:
+        config = load_ros_config()
+        sockets = {robot.bridge_url: FakeSocket() for robot in config.robots}
+
+        async def connect(url: str, **_kwargs):
+            return sockets[url]
+
+        now = [1000.0]
+        adapter = RosbridgeAdapter(config, connect_factory=connect, clock=lambda: now[0])
+        adapter.map_handler = None
+        await adapter.connect()
+        await asyncio.sleep(0)
+        assert adapter.scan_fresh("robot_1") is False  # no scan yet
+        robot_1_socket = sockets[config.robots[0].bridge_url]
+        scan = {"header": {"frame_id": "laser", "stamp": {"sec": 0, "nsec": 0}}, "angle_min": -1.5, "angle_max": 1.5, "angle_increment": 0.1, "range_min": 0.1, "range_max": 10.0, "ranges": [1.0, 2.0, 3.0]}
+        await robot_1_socket.incoming.put(json.dumps({"op": "publish", "topic": "/scan", "msg": scan}))
+        await asyncio.sleep(0)
+        now[0] = 1000.5
+        assert adapter.scan_fresh("robot_1") is True
+        now[0] = 1003.0
+        assert adapter.scan_fresh("robot_1") is False
+        await adapter.close()
+
+    asyncio.run(exercise())

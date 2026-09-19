@@ -228,6 +228,11 @@ class RosbridgeAdapter:
         if topics.path:
             await socket.send(json.dumps({"op": "subscribe", "topic": topics.path, "type": "nav_msgs/msg/Path", "queue_length": 1}, separators=(",", ":")))
 
+    def scan_fresh(self, robot_id: RobotId, max_age: float = 2.0) -> bool:
+        """True when a LaserScan arrived within max_age seconds."""
+        received_at = self._scan_received_at.get(robot_id)
+        return received_at is not None and self._clock() - received_at <= max_age
+
     async def set_map_streaming(self, robot_id: RobotId, enabled: bool) -> None:
         """Subscribe/unsubscribe /map for the live mapping view (robot-scoped)."""
         socket = self._sockets.get(robot_id)

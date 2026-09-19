@@ -23,7 +23,7 @@ from pinky_control_center.api import line_follow as line_follow_api
 from pinky_control_center.api import mapping_stream
 from pinky_control_center.auth import current_user, verify_mutation
 from pinky_control_center.config import load_mock_config, load_ros_config
-from pinky_control_center.models import Connection, FormationMode, MockScenario, MockScenarioRequest, SensorState, UserInfo, UserRole
+from pinky_control_center.models import Connection, FormationMode, MockScenario, MockScenarioRequest, UserInfo, UserRole
 from pinky_control_center.map_service import MapService
 from pinky_control_center.camera_service import CameraService
 from pinky_control_center.recording_service import RecordingService
@@ -72,7 +72,8 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
         robots = state_store.snapshot().robots
         robot = next((item for item in robots if item.robot_id == "robot_1"), None)
         online = robot is not None and robot.connection == Connection.ONLINE
-        scan_fresh = any(item.name == "scan" and item.state == SensorState.FRESH for item in robot.sensors) if robot and robot.sensors else online
+        scan_check = getattr(adapter, "scan_fresh", None)
+        scan_fresh = scan_check("robot_1") if scan_check is not None else online
         return online, scan_fresh
 
     def mapping_import() -> dict | None:
