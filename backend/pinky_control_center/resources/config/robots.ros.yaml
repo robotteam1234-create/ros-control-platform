@@ -24,7 +24,7 @@ robots:
     services:
       control_command: /control/command
       control_command_type: pinky_control_interfaces/srv/ControlCommand
-      control_available: false
+      control_available: true
     camera:
       throttle_rate_ms: 100
       fragment_size: 65536
