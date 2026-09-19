@@ -128,6 +128,7 @@ class CommandDispatcher:
                 self.storage.set_command_result(item.command_id, result)
                 self.storage.set_command_state(item.command_id, "SUCCEEDED" if accepted else "FAILED")
             except Exception as error:
+                print(f"command {item.command_id} handler error: {error!r}", flush=True)
                 self.storage.set_command_result(item.command_id, {"reason_code": "EXECUTION_FAILED"})
                 self.storage.set_command_state(item.command_id, "FAILED")
             return

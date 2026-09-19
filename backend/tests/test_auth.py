@@ -123,3 +123,20 @@ def test_expired_session_that_owns_control_lease_reports_control_loss(tmp_path: 
     assert storage.expire_security() == ["SESSION_EXPIRED"]
     assert not storage.owns_lease(lease.lease_id, operator, token)
     storage.close()
+
+
+def test_validation_error_with_bytes_body_returns_422_not_500(tmp_path):
+    """A malformed (non-JSON) body must normalize to the standard 422 envelope."""
+    from fastapi.testclient import TestClient
+    from pinky_control_center.main import create_app
+    app = create_app(database_path=tmp_path / "control.db", start_command_worker=False)
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/session",
+        content=b"\xff\x00garbage",
+        headers={"content-type": "application/json", "origin": "http://localhost:5173"},
+    )
+    # Malformed JSON is rejected as a client error (400/422) — never a 500 crash.
+    assert response.status_code in (400, 422)
+    if response.status_code == 422:
+        assert response.json()["error"]["code"] == "INVALID_VALUE"

@@ -12,6 +12,7 @@ from typing import Literal
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -285,7 +286,7 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_request: Request, error: RequestValidationError) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"error": {"code": "INVALID_VALUE", "message": "request validation failed", "details": {"validation_errors": error.errors()}}, "request_id": None})
+        return JSONResponse(status_code=422, content={"error": {"code": "INVALID_VALUE", "message": "request validation failed", "details": {"validation_errors": jsonable_encoder(error.errors())}}, "request_id": None})
 
     @app.get("/health")
     async def health() -> dict[str, str]:
