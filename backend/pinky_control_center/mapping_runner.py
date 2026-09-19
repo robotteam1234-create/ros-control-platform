@@ -74,6 +74,38 @@ class MappingRunner:
     def status(self) -> dict:
         return dict(self._session)
 
+    @property
+    def _run_file(self) -> Path:
+        return self.state_dir / "mapping" / "run.json"
+
+    def detect_orphan(self) -> dict | None:
+        """A pipeline left running by a previous backend process."""
+        try:
+            record = json.loads(self._run_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        pid = int(record.get("pid", 0))
+        if pid <= 0:
+            return None
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return None
+        return record
+
+    async def kill_orphan(self) -> dict | None:
+        orphan = self.detect_orphan()
+        if orphan is None:
+            return None
+        try:
+            os.killpg(os.getpgid(int(orphan["pid"])), signal.SIGKILL)
+        except (OSError, ProcessLookupError):
+            try:
+                os.kill(int(orphan["pid"]), signal.SIGKILL)
+            except OSError:
+                pass
+        return orphan
+
     async def start(self, robot_id: str, lease_id: str | None = None) -> dict:
         if robot_id not in SUPPORTED_ROBOTS:
             raise ValueError("ROBOT_NOT_SUPPORTED")
@@ -98,6 +130,7 @@ class MappingRunner:
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT, start_new_session=True,
         )
         self._session["pid"] = self._proc.pid
+        self._run_file.write_text(json.dumps({"pid": self._proc.pid, "started_at": self._session["started_at"]}), encoding="utf-8")
         self._pump = asyncio.ensure_future(self._pump_output())
         return await self._wait()
 
@@ -152,6 +185,7 @@ class MappingRunner:
             self._session["state"] = "FAILED"
             self._session["reason"] = "MAP_CORRUPTED" if self._session.get("corrupt") else "RUNNER_EXIT_" + str(rc)
         self._session["finished_at"] = datetime.now(UTC).isoformat()
+        self._run_file.unlink(missing_ok=True)
         return self.status()
 
     async def cancel(self) -> dict:
