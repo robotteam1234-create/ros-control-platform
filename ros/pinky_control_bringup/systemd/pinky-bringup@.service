@@ -1,0 +1,16 @@
+[Unit]
+Description=Pinky hardware bringup for %i (rosbridge control platform)
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=exec
+EnvironmentFile=%h/.config/pinky-control/%i.env
+ExecStart=%h/pinky/startup/bin/robot_bringup.sh
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
