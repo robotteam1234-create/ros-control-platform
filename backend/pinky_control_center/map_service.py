@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import math
+from pathlib import Path
 from xml.etree import ElementTree
 from importlib import resources
 
@@ -14,12 +15,19 @@ from pinky_control_center.models import MapMetadata, MapOrigin, MapSummary
 class MapService:
     """Provides deterministic mock map metadata and a cacheable occupancy PNG."""
 
-    def __init__(self) -> None:
+    def __init__(self, extra_dir: Path | None = None) -> None:
         configs = [yaml.safe_load(resource.read_text(encoding="utf-8")) for resource in sorted(resources.files("pinky_control_center").joinpath("resources", "maps").iterdir(), key=lambda resource: resource.name) if resource.name.endswith(".yaml")]
+        self._sources: dict[str, Path | None] = {}
+        if extra_dir is not None and extra_dir.exists():
+            for path in sorted(extra_dir.glob("*.yaml")):
+                config = yaml.safe_load(path.read_text(encoding="utf-8"))
+                image = config.pop("image", None)
+                self._sources[config["map_id"]] = (extra_dir / str(image)) if image else None
+                configs.append(config)
         self._metadata = {config["map_id"]: MapMetadata.model_validate({**config, "data_url": f"/api/v1/maps/{config['map_id']}/data"}) for config in configs}
         self.map_id = "mock_lab"
         self.version = self._metadata[self.map_id].version
-        self._png = {map_id: self._make_png(map_id, metadata) for map_id, metadata in self._metadata.items()}
+        self._png = {map_id: (self._image_file_png(self._sources[map_id]) if self._sources.get(map_id) else self._make_png(map_id, metadata)) for map_id, metadata in self._metadata.items()}
         self._occupancy = {map_id: Image.open(io.BytesIO(png)).convert("L") for map_id, png in self._png.items()}
 
     def summaries(self) -> list[MapSummary]:
@@ -50,6 +58,27 @@ class MapService:
         if not (0 <= column < metadata.width and 0 <= row < metadata.height):
             return False
         return image.getpixel((column, row)) >= 250
+
+    def register(self, yaml_path: Path) -> str:
+        """Register a dynamic map YAML (state dir) at runtime; returns map_id."""
+        yaml_path = Path(yaml_path)
+        config = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+        map_id = str(config["map_id"])
+        image = config.pop("image", None)
+        metadata = MapMetadata.model_validate({**config, "data_url": f"/api/v1/maps/{map_id}/data"})
+        png = self._image_file_png(yaml_path.parent / str(image))
+        self._metadata[map_id] = metadata
+        self._png[map_id] = png
+        self._occupancy[map_id] = Image.open(io.BytesIO(png)).convert("L")
+        return map_id
+
+    @staticmethod
+    def _image_file_png(image_path: Path) -> bytes:
+        """Re-encode an occupancy image file (free 254 / occupied 0 / unknown 205)."""
+        with Image.open(image_path) as image:
+            data = io.BytesIO()
+            image.convert("L").save(data, format="PNG")
+            return data.getvalue()
 
     @staticmethod
     def _make_png(map_id: str, metadata: MapMetadata) -> bytes:

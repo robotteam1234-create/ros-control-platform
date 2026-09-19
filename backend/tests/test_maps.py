@@ -6,6 +6,7 @@ from io import BytesIO
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from pinky_control_center.map_service import MapService
 from pinky_control_center.adapters.mock import MockRobotAdapter
 from pinky_control_center.main import create_app
 from pinky_control_center.models import UserRole
@@ -89,3 +90,37 @@ def test_mock_map_pose_geometry_is_bounded_and_tf_invalid_clears_formation_measu
     assert state.formation.distance_m is None
     assert state.formation.gap_error_m is None
     assert state.formation.bearing_rad is None
+
+
+def _write_occupancy(directory, map_id: str, value_at: dict[tuple[int, int], int]) -> None:
+    image = Image.new("L", (4, 4), 254)
+    pixels = image.load()
+    for (x, y), value in value_at.items():
+        pixels[x, y] = value
+    image.save(directory / f"{map_id}.pgm", format="PPM")
+    (directory / f"{map_id}.yaml").write_text(
+        f"image: {map_id}.pgm\nmap_id: {map_id}\nname: {map_id} test\nframe_id: map\nresolution: 0.05\n"
+        f"width: 4\nheight: 4\norigin:\n  x: 0.0\n  y: 0.0\n  yaw: 0.0\nversion: \"1\"\n",
+        encoding="utf-8")
+
+
+def test_dynamic_map_loaded_from_extra_dir(tmp_path):
+    _write_occupancy(tmp_path, "map_auto_one", {(2, 2): 0})
+    service = MapService(extra_dir=tmp_path)
+    ids = [item.map_id for item in service.summaries()]
+    assert "map_auto_one" in ids
+    payload, etag = service.png("map_auto_one")
+    assert payload.startswith(b"\x89PNG") and "map_auto_one:1" in etag
+    # occupied pixel (2,2) with origin 0,0 res 0.05 -> world (0.1, 0.1) is NOT free;
+    # pixel (0,0) row=height-1-row_from_bottom conventions exercised via is_free
+    assert service.is_free("map_auto_one", 0.05, 0.05) is True
+    assert service.is_free("map_auto_one", 0.11, 0.075) is False
+
+
+def test_register_runtime_map(tmp_path):
+    _write_occupancy(tmp_path, "map_auto_first", {})
+    service = MapService(extra_dir=tmp_path)
+    _write_occupancy(tmp_path, "map_auto_second", {})
+    map_id = service.register(tmp_path / "map_auto_second.yaml")
+    assert map_id == "map_auto_second"
+    assert "map_auto_second" in [item.map_id for item in service.summaries()]
