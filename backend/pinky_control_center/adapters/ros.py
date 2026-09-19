@@ -19,7 +19,7 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
-from typing import Any, Literal
+from typing import Callable, Any, Literal
 from uuid import uuid4
 
 import websockets
@@ -228,6 +228,14 @@ class RosbridgeAdapter:
         if topics.path:
             await socket.send(json.dumps({"op": "subscribe", "topic": topics.path, "type": "nav_msgs/msg/Path", "queue_length": 1}, separators=(",", ":")))
 
+    async def set_map_streaming(self, robot_id: RobotId, enabled: bool) -> None:
+        """Subscribe/unsubscribe /map for the live mapping view (robot-scoped)."""
+        socket = self._sockets.get(robot_id)
+        if socket is None:
+            return
+        op = "subscribe" if enabled else "unsubscribe"
+        await socket.send(json.dumps({"op": op, "topic": "/map", "type": "nav_msgs/msg/OccupancyGrid", "queue_length": 1}, separators=(",", ":")))
+
     def _mark_connected(self, robot_id: RobotId) -> None:
         now = self._clock()
         current = self._states[robot_id]
@@ -355,6 +363,8 @@ class RosbridgeAdapter:
             "parameters": pending.command.parameters,
         }, self._clock())
 
+    map_handler: Callable[[RobotId, dict], None] | None = None
+
     async def handle_publish(self, robot_id: RobotId, topic: str, message: dict[str, object]) -> None:
         """Public protocol seam used by contract tests and rosbridge readers."""
         robot = self._by_id[robot_id]
@@ -383,6 +393,9 @@ class RosbridgeAdapter:
                 "path": [MapPoint.model_validate(point) for point in payload["points"]],
             })
             await self._emit("path", robot_id, payload, now)
+        elif topic == "/map":
+            if self.map_handler is not None:
+                self.map_handler(robot_id, message)
         elif topic == robot.topics.scan:
             self._scans[robot_id] = message
             self._scan_received_at[robot_id] = now

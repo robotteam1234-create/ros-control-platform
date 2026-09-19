@@ -398,3 +398,39 @@ def test_service_response_must_arrive_on_the_originating_robot_socket() -> None:
         await adapter.close()
 
     asyncio.run(exercise())
+
+
+def test_rosbridge_map_streaming_subscribe_route_and_unsubscribe() -> None:
+    async def exercise() -> None:
+        config = load_ros_config()
+        sockets = {robot.bridge_url: FakeSocket() for robot in config.robots}
+
+        async def connect(url: str, **_kwargs):
+            return sockets[url]
+
+        adapter = RosbridgeAdapter(config, connect_factory=connect)
+        await adapter.connect()
+        await asyncio.sleep(0)
+        seen: list[tuple[str, dict]] = []
+        adapter.map_handler = lambda robot_id, msg: seen.append((robot_id, msg))
+        robot_1_socket = sockets[config.robots[0].bridge_url]
+        sent_topics = lambda: [item["topic"] for item in robot_1_socket.sent]
+
+        await adapter.set_map_streaming("robot_1", True)
+        assert "/map" in sent_topics()
+
+        grid = {"info": {"width": 1, "height": 1, "resolution": 0.05, "origin": {"position": {"x": 0.0, "y": 0.0, "z": 0.0}}}, "data": [0]}
+        await robot_1_socket.incoming.put(json.dumps({"op": "publish", "topic": "/map", "msg": grid}))
+        await asyncio.sleep(0)
+        assert seen and seen[0][0] == "robot_1" and seen[0][1]["data"] == [0]
+
+        await adapter.set_map_streaming("robot_1", False)
+        unsubscribed = [item for item in robot_1_socket.sent if item["op"] == "unsubscribe"]
+        assert any(item["topic"] == "/map" for item in unsubscribed)
+
+        # robot_2 socket never received map ops (robot_1-only streaming)
+        robot_2_socket = sockets[config.robots[1].bridge_url]
+        assert "/map" not in [item["topic"] for item in robot_2_socket.sent]
+        await adapter.close()
+
+    asyncio.run(exercise())
