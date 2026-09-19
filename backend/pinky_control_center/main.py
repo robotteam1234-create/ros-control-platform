@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import shutil
 import time
+from datetime import UTC, datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
@@ -18,9 +20,10 @@ from pinky_control_center.adapters.mock import MockRobotAdapter
 from pinky_control_center.adapters.ros import RosbridgeAdapter
 from pinky_control_center.api import alerts, cameras, control, history, mappings, maps, missions, navigation, recordings, sensors, session, state, settings
 from pinky_control_center.api import line_follow as line_follow_api
+from pinky_control_center.api import mapping_stream
 from pinky_control_center.auth import current_user, verify_mutation
 from pinky_control_center.config import load_mock_config, load_ros_config
-from pinky_control_center.models import FormationMode, MockScenario, MockScenarioRequest, UserInfo, UserRole
+from pinky_control_center.models import Connection, FormationMode, MockScenario, MockScenarioRequest, SensorState, UserInfo, UserRole
 from pinky_control_center.map_service import MapService
 from pinky_control_center.camera_service import CameraService
 from pinky_control_center.recording_service import RecordingService
@@ -32,6 +35,8 @@ from pinky_control_center.storage import Storage, utc_now
 from pinky_control_center.mission_service import MissionService
 from pinky_control_center.line_follow_service import LineFollowService
 from pinky_control_center.mapping_service import MappingService
+from pinky_control_center.mapping_runner import MappingRunner
+from pinky_control_center.map_stream_service import MapStreamService
 from pinky_control_center.alert_service import AlertService
 from pinky_control_center.settings_service import SettingsService
 from pinky_control_center.navigation_service import NavigationService
@@ -60,7 +65,41 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     db_path = Path(database_path or default_database_path())
     recording_service = RecordingService(db_path.parent / "recordings")
     state_store = StateStore(adapter.snapshot)
-    map_service = MapService()
+    map_service = MapService(extra_dir=db_path.parent / "maps")
+    map_stream_service = MapStreamService()
+
+    def _mapping_preflight() -> tuple[bool, bool]:
+        robots = state_store.snapshot().robots
+        robot = next((item for item in robots if item.robot_id == "robot_1"), None)
+        online = robot is not None and robot.connection == Connection.ONLINE
+        scan_fresh = any(item.name == "scan" and item.state == SensorState.FRESH for item in robot.sensors) if robot and robot.sensors else online
+        return online, scan_fresh
+
+    def mapping_import() -> dict | None:
+        lap585_dir = Path(os.environ.get("PINKY_MAPPING_LAP585_DIR", Path(__file__).resolve().parents[2] / "lap585"))
+        source_yaml = lap585_dir / "map_real.yaml"
+        source_pgm = lap585_dir / "map_real.pgm"
+        if not (source_yaml.exists() and source_pgm.exists()):
+            return None
+        map_id = "map_auto_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+        maps_dir = db_path.parent / "maps"
+        maps_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_pgm, maps_dir / f"{map_id}.pgm")
+        kept = [line for line in source_yaml.read_text(encoding="utf-8").splitlines() if not line.startswith(("map_id:", "image:", "name:"))]
+        (maps_dir / f"{map_id}.yaml").write_text(
+            f"image: {map_id}.pgm\nmap_id: {map_id}\nname: 자동 매핑 {map_id}\n" + "\n".join(kept) + "\n",
+            encoding="utf-8")
+        map_service.register(maps_dir / f"{map_id}.yaml")
+        return {"imported_map_id": map_id}
+
+    mapping_runner = MappingRunner(
+        lap585_dir=Path(os.environ.get("PINKY_MAPPING_LAP585_DIR", Path(__file__).resolve().parents[2] / "lap585")),
+        overlay_dir=Path(os.environ.get("PINKY_MAPPING_OVERLAY_DIR", Path.home() / "nav_overlay")),
+        state_dir=db_path.parent,
+        preflight_state=_mapping_preflight,
+        on_complete=mapping_import,
+    )
+    setattr(adapter, "map_handler", lambda robot_id, message: map_stream_service.update_grid(robot_id, message))
     camera_service = CameraService(adapter.frame)
     command_service = CommandService(storage, adapter)
     runtime_clock = monotonic_clock or time.monotonic
@@ -71,7 +110,7 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     navigation_service = NavigationService(storage, adapter, state_store, map_service, settings_service.current)
     mission_service = MissionService(storage, adapter, state_store, runtime_clock, settings_service.current)
     line_follow_service = LineFollowService(adapter)
-    mapping_service = MappingService(storage, settings_service.current)
+    mapping_service = MappingService(storage, settings_service.current, runner=mapping_runner)
     state_store.alert_provider = lambda: alert_service.list(state="ACTIVE")
     for operation in ("formation_pair", "formation_start", "formation_pause", "formation_unpair", "formation_rejoin"):
         command_service.handlers[operation] = mission_service.execute_formation
@@ -117,6 +156,10 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     app.state.mission_service = mission_service
     app.state.line_follow_service = line_follow_service
     app.state.mapping_service = mapping_service
+    app.state.mapping_runner = mapping_runner
+    app.state.map_stream_service = map_stream_service
+    app.state.map_streaming_active = False
+    app.state.mapping_import = mapping_import
     app.state.recording_service = recording_service
     app.state.alert_service = alert_service
     app.state.settings_service = settings_service
@@ -191,6 +234,12 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
             frame = adapter.frame(robot_id)
             if frame is not None:
                 recording_service.record(robot_id, frame)
+        streaming = mapping_runner.status().get("state") == "RUNNING"
+        if streaming != app.state.map_streaming_active:
+            set_stream = getattr(adapter, "set_map_streaming", None)
+            if set_stream is not None:
+                await set_stream("robot_1", streaming)
+            app.state.map_streaming_active = streaming
         if storage.expire_security():
             # An expired control identity invalidates manual authority for both robots.
             await protective_stop("robot_1")
@@ -216,6 +265,7 @@ def create_app(mode: Literal["mock", "ros"] = "mock", config_path: Path | None =
     app.include_router(maps.create_router(map_service))
     app.include_router(settings.create_router())
     app.include_router(cameras.create_router(camera_service))
+    app.include_router(mapping_stream.create_router(map_stream_service))
     app.include_router(alerts.router)
     app.include_router(history.router)
     app.include_router(sensors.router)

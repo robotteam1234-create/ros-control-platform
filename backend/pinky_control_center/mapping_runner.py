@@ -107,6 +107,12 @@ class MappingRunner:
         return orphan
 
     async def start(self, robot_id: str, lease_id: str | None = None) -> dict:
+        """Spawn the pipeline and await its completion (tests, CLI)."""
+        await self.launch(robot_id, lease_id)
+        return await self._wait()
+
+    async def launch(self, robot_id: str, lease_id: str | None = None) -> dict:
+        """Spawn the pipeline; returns RUNNING immediately, completion lands in status()."""
         if robot_id not in SUPPORTED_ROBOTS:
             raise ValueError("ROBOT_NOT_SUPPORTED")
         if self._session["state"] == "RUNNING":
@@ -132,7 +138,7 @@ class MappingRunner:
         self._session["pid"] = self._proc.pid
         self._run_file.write_text(json.dumps({"pid": self._proc.pid, "started_at": self._session["started_at"]}), encoding="utf-8")
         self._pump = asyncio.ensure_future(self._pump_output())
-        return await self._wait()
+        return self.status()
 
     async def _pump_output(self) -> None:
         assert self._proc is not None and self._proc.stdout is not None
@@ -187,6 +193,13 @@ class MappingRunner:
         self._session["finished_at"] = datetime.now(UTC).isoformat()
         self._run_file.unlink(missing_ok=True)
         return self.status()
+
+    def log_tail(self, limit: int = 100) -> list[str]:
+        try:
+            lines = self.log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return []
+        return lines[-max(1, min(limit, 500)):]
 
     async def cancel(self) -> dict:
         self._cancelled = True
