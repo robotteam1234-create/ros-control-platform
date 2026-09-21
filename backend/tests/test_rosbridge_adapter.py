@@ -90,7 +90,14 @@ def test_rosbridge_routes_subscriptions_and_commands_to_the_matching_robot() -> 
         calls_2 = [item for item in sockets["ws://robot-2.local:9091"].sent if item["op"] == "call_service"]
         assert calls_1 == []
         assert calls_2[0]["service"] == "/control/command"
-        assert calls_2[0]["args"]["operation"] == "stop"
+        # rosbridge 2.7+ treats call_service args as POSITIONAL field values;
+        # a message-style dict would land in command_id (a str field) and be
+        # rejected with "msg is not a primitive type". ControlCommand.srv
+        # field order: command_id, operation, parameters_json.
+        assert calls_2[0]["args"][:2] == [calls_2[0]["args"][0], "stop"]
+        assert isinstance(calls_2[0]["args"], list)
+        assert len(calls_2[0]["args"]) == 3
+        assert isinstance(calls_2[0]["args"][2], str)  # parameters_json
         events = adapter.drain_events()
         assert events[-1].kind == "command" and events[-1].payload["state"] == "SUCCEEDED"
         await adapter.close()

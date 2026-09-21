@@ -231,7 +231,12 @@ class RosbridgeAdapter:
     def scan_fresh(self, robot_id: RobotId, max_age: float = 2.0) -> bool:
         """True when a LaserScan arrived within max_age seconds."""
         received_at = self._scan_received_at.get(robot_id)
-        return received_at is not None and self._clock() - received_at <= max_age
+        if received_at is None:
+            return False
+        age = self._clock() - received_at
+        if hasattr(age, "total_seconds"):
+            age = age.total_seconds()
+        return 0.0 <= float(age) <= max_age
 
     async def set_map_streaming(self, robot_id: RobotId, enabled: bool) -> None:
         """Subscribe/unsubscribe /map for the live mapping view (robot-scoped)."""
@@ -693,18 +698,22 @@ class RosbridgeAdapter:
             self._service_calls.pop(call_id, None)
 
     @staticmethod
-    def _service_args(service_type: str, command: CommandRequest) -> dict[str, object]:
+    def _service_args(service_type: str, command: CommandRequest) -> list[object]:
         if service_type.endswith("/ControlCommand"):
-            return {
-                "command_id": str(command.command_id),
-                "operation": command.operation,
-                "parameters_json": json.dumps(command.parameters, separators=(",", ":")),
-            }
-        return {
-            "command_id": str(command.command_id),
-            "operation": command.operation,
-            "parameters": command.parameters,
-        }
+            # rosbridge 2.7+ fills call_service args as POSITIONAL values in
+            # srv field order; a message-style dict would be assigned to the
+            # first (str) field and rejected ("msg is not a primitive type").
+            # ControlCommand.srv: command_id, operation, parameters_json.
+            return [
+                str(command.command_id),
+                command.operation,
+                json.dumps(command.parameters, separators=(",", ":")),
+            ]
+        return [
+            str(command.command_id),
+            command.operation,
+            command.parameters,
+        ]
 
     async def _publish_initial_pose(self, robot_id: RobotId, socket: Any, command: CommandRequest) -> CommandAcceptance:
         topic = self._by_id[robot_id].topics.initial_pose
